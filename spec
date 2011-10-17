@@ -18,6 +18,28 @@ So if n≥2, we should divide and conquer.
 Conclusion: choosing the method depending on whether n is even or odd, we should split an n-letter word whenever n≥5.
 Note also that for longer words, it might be more efficient still to split into more than two parts immediately (eg. for n=9 it might be better to split into three 3s than a 4, a 2 and a 3 (which the above produces), but this would increase the implementation complexity of the algorithm, and I hate that sort of thing.
 
+Complexity analysis:
+n		cost
+1		0 (special case)
+2		3 (special case)
+3		27
+4		81
+5		2c(3)+3 = 57
+6		6c(3)+9 = 171
+7		2c(4)+3 = 165
+8		6c(4)+9 = 495
+9		2c(5)+3 = 117
+10		6c(5)+9 = 351
+11		2c(6)+3 = 345
+12		6c(6)+9 = 1035
+13		2c(7)+3 = 333
+14		6c(7)+9 = 999
+15		2c(8)+3 = 993
+16		6c(8)+9 = 2979
+
+worst case is for n=2^k
+c(2^k)=6c(2^(k-1))+9=O(6^k)=O(n^(log2(6))~=O(n^2.585) which is good enough
+
 Things to do:
 1. Implement the above algorithm taking as input a table of pair scores (or class-pair scores?)
 2. Create a table of pair scores for some suitable monospace font (eg. the xterm default VT font)

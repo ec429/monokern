@@ -16,6 +16,7 @@ n	2.3^(n-1)+3	3^(2n-1)
 2	9			27
 So if n≥2, we should divide and conquer.
 Conclusion: choosing the method depending on whether n is even or odd, we should split an n-letter word whenever n≥5.
+Note also that for longer words, it might be more efficient still to split into more than two parts immediately (eg. for n=9 it might be better to split into three 3s than a 4, a 2 and a 3 (which the above produces), but this would increase the implementation complexity of the algorithm, and I hate that sort of thing.
 
 Things to do:
 1. Implement the above algorithm taking as input a table of pair scores (or class-pair scores?)

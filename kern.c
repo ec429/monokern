@@ -148,4 +148,40 @@ int ekern(size_t n, const char *str, signed char *dev, const KERN *k)
 	}
 }
 
-int kern(const char *str, signed char *dev, const KERN *k);
+int kern(const char *str, signed char *dev, const KERN *k)
+{
+	if(!(str&&dev&&k)) return(0);
+	int score=0;
+	while(*str)
+	{
+		if(*str==' ')
+		{
+			*dev++=0;
+			str++;
+			continue;
+		}
+		size_t p=strcspn(str, " ");
+		int maxsc=INT_MIN, mi=0, mj=0;
+		for(int i=0;i<3;i++)
+		{
+			dev[0]=i-1;
+			for(int j=0;j<3;j++)
+			{
+				dev[p-1]=j-1;
+				int sc=ekern(p, str, dev, k);
+				if(sc>maxsc)
+				{
+					maxsc=sc;
+					mi=i;
+					mj=j;
+				}
+			}
+		}
+		dev[0]=mi-1;
+		dev[p-1]=mj-1;
+		score+=ekern(p, str, dev, k);
+		str+=p;
+		dev+=p;
+	}
+	return(score);
+}

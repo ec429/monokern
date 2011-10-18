@@ -4,4 +4,4 @@ monokern: a project to create a kerned monospace font for terminals and code.
 The basic idea behind monokern is /deviation kerning/: any individual character is permitted to deviate a fixed amount from its grid position.  In the initial experiments, this will be 1px, because we're working with smallish fonts around 10 or 12pt.  Then, since interword spacing can be crushed or expanded a couple of px without the sky falling (hence why justified text is readable), the software need only optimise deviation across each word.
 
 To display an 80x24 text monokerned: ./kernify <text
-To build your own kerning tables: ./mk_kern > mk_runs/foo; cat mk_runs/* | ./mk_scores > scores # note that mk_kern is currently broken
+To build your own kerning tables: ./mk_kern > mk_runs/foo; cat mk_runs/* | ./mk_scores > scores

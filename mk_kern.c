@@ -41,7 +41,7 @@ int main(int argc, char **argv)
 	for(int i=0;i<26;i++)
 	{
 		char lfn[13];
-		sprintf(lfn, "az/az_%hhu.pbm", i);
+		sprintf(lfn, "as/as_%hhu.pbm", i+97);
 		if(!(letters[i]=IMG_Load(lfn)))
 		{
 			fprintf(stderr, "IMG_Load: %s\n", IMG_GetError());

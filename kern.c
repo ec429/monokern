@@ -63,6 +63,17 @@ int rate(size_t n, const char *str, const signed char *dev, const KERN *k)
 			rv+=k->score[a][b][2]-30;
 			continue;
 		}
+		if(i)
+		{
+			int c=str[i-2];
+			c-=32;
+			if((c>=0)&&(c<95))
+			{
+				int osp=dev[i-1]-dev[i-2];
+				if((k->score[a][b][0]>0)&&(k->score[c][a][0]>0))
+					if(abs(osp-spa)>1) rv-=30;
+			}
+		}
 		rv+=k->score[a][b][spa+1];
 	}
 	return(rv);

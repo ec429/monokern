@@ -53,9 +53,14 @@ int rate(size_t n, const char *str, const signed char *dev, const KERN *k)
 		{
 			continue;
 		}
-		if((spa<-1)||(spa>1))
+		if(spa<-1)
 		{
-			rv-=30;
+			rv+=k->score[a][b][0]-30;
+			continue;
+		}
+		if(spa>1)
+		{
+			rv+=k->score[a][b][2]-30;
 			continue;
 		}
 		rv+=k->score[a][b][spa+1];

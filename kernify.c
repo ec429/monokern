@@ -45,8 +45,9 @@ int main(void)
 		char c=*p;
 		if(c) kdstr(screen, 4, y, p, k);
 		free(p);
-		if(!c) break;
 		y+=13;
+		if(feof(stdin)) break;
+		if(y>308) break;
 	}
 	/*kdstr(screen, 4, 3, "This is some sample text to be kerned.  Hopefully it should look rather nice (though it probably won't!)", k);
 	kdstr(screen, 4, 16, "Here's another line of text.  It will also be kerned, by the same algorithm; pretty cool huh? :-)", k);*/
@@ -150,7 +151,13 @@ char * fgetl(FILE *fp)
 		c=fgetc(fp);
 		if((c==EOF)||(c=='\n'))
 			break;
-		if(c!=0)
+		if(c=='\t')
+		{
+			append_char(&lout, &l, &i, ' ');
+			while(i&3)
+				append_char(&lout, &l, &i, ' ');
+		}
+		else if(c!=0)
 		{
 			append_char(&lout, &l, &i, c);
 		}

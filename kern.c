@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
+#include <ctype.h>
 #include "kern.h"
 
 struct _kern
@@ -42,6 +43,11 @@ int rate(size_t n, const char *str, const signed char *dev, const KERN *k)
 	{
 		int spa=dev[i+1]-dev[i];
 		int a=str[i],b=str[++i];
+		int w=4;
+		if(isalpha(a)) w+=2;
+		if(isalpha(b)) w+=2;
+		if(a=='_') w=(w|1)/2;
+		if(b=='_') w=(w|1)/2;
 		a-=32;
 		b-=32;
 		if((a<0)||(a>94)||(b<0)||(b>94))
@@ -55,12 +61,12 @@ int rate(size_t n, const char *str, const signed char *dev, const KERN *k)
 		}
 		if(spa<-1)
 		{
-			rv+=k->score[a][b][0]-30;
+			rv+=(k->score[a][b][0]-30);
 			continue;
 		}
 		if(spa>1)
 		{
-			rv+=k->score[a][b][2]-30;
+			rv+=(k->score[a][b][2]-30)*w;
 			continue;
 		}
 		if(i)
@@ -71,10 +77,10 @@ int rate(size_t n, const char *str, const signed char *dev, const KERN *k)
 			{
 				int osp=dev[i-1]-dev[i-2];
 				if((k->score[a][b][0]>0)&&(k->score[c][a][0]>0))
-					if(abs(osp-spa)>1) rv-=30;
+					if(abs(osp-spa)>1) rv-=30*w;
 			}
 		}
-		rv+=k->score[a][b][spa+1];
+		rv+=k->score[a][b][spa+1]*w;
 	}
 	return(rv);
 }

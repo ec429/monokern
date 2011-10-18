@@ -1,21 +1,22 @@
+#include <stdlib.h>
 #include <string.h>
 #include <limits.h>
 #include "kern.h"
 
 struct _kern
 {
-	int score[96][96][3];
+	int score[95][95][3];
 };
 
-int rate(const char *str, const signed char *dev, const KERN *k);
+int rate(size_t n, const char *str, const signed char *dev, const KERN *k);
 int ekern(size_t n, const char *str, signed char *dev, const KERN *k);
 
-KERN kern_init(FILE *fp)
+KERN *kern_init(FILE *fp)
 {
-	KERN rv;
-	for(int i=0;i<96;i++)
-		for(int j=0;j<96;j++)
-			rv.score[i][j][0]=rv.score[i][j][1]=rv.score[i][j][2]=0;
+	KERN *rv=malloc(sizeof(KERN));
+	for(int i=0;i<95;i++)
+		for(int j=0;j<95;j++)
+			rv->score[i][j][0]=(rv->score[i][j][1]=rv->score[i][j][2]=0)-15;
 	if(!fp) return(rv);
 	while(!feof(fp))
 	{
@@ -25,24 +26,25 @@ KERN kern_init(FILE *fp)
 		if(b==EOF) break;
 		a-=32;
 		b-=32;
-		if((a<0)||(a>95)) break;
-		if((b<0)||(b>95)) break;
+		if((a<0)||(a>94)) break;
+		if((b<0)||(b>94)) break;
 		if(fgetc(fp)!=' ') break;
-		fscanf(fp, "%d %d %d\n", rv.score[a][b], rv.score[a][b]+1, rv.score[a][b]+2);
+		fscanf(fp, "%d %d %d\n", rv->score[a][b], rv->score[a][b]+1, rv->score[a][b]+2);
 	}
 	return(rv);
 }
 
-int rate(const char *str, const signed char *dev, const KERN *k)
+int rate(size_t n, const char *str, const signed char *dev, const KERN *k)
 {
 	int rv=0;
-	while(str[0]&&str[1])
+	size_t i=0;
+	while(i<n-1)
 	{
-		int spa=dev[1]-dev[0];
-		int a=str[0],b=str[1];
+		int spa=dev[i+1]-dev[i];
+		int a=str[i],b=str[++i];
 		a-=32;
 		b-=32;
-		if((a<0)||(a>95)||(b<0)||(b>95))
+		if((a<0)||(a>94)||(b<0)||(b>94))
 		{
 			rv-=spa?30:0;
 			continue;
@@ -65,7 +67,7 @@ int ekern(size_t n, const char *str, signed char *dev, const KERN *k)
 {
 	if(n<3)
 	{
-		return(rate(str, dev, k));
+		return(rate(n, str, dev, k));
 	}
 	else if(n==3)
 	{
@@ -73,7 +75,7 @@ int ekern(size_t n, const char *str, signed char *dev, const KERN *k)
 		for(int i=0;i<3;i++)
 		{
 			dev[1]=i-1;
-			int sc=rate(str, dev, k);
+			int sc=rate(3, str, dev, k);
 			if(sc>maxsc)
 			{
 				maxsc=sc;
@@ -92,7 +94,7 @@ int ekern(size_t n, const char *str, signed char *dev, const KERN *k)
 			for(int j=0;j<3;j++)
 			{
 				dev[2]=j-1;
-				int sc=rate(str, dev, k);
+				int sc=rate(4, str, dev, k);
 				if(sc>maxsc)
 				{
 					maxsc=sc;
@@ -133,7 +135,7 @@ int ekern(size_t n, const char *str, signed char *dev, const KERN *k)
 			for(int j=0;j<3;j++)
 			{
 				dev[s]=j-1;
-				int sc=ekern(s, str, dev, k)+ekern(s, str+s, dev+s, k)+rate(m, dev+s-1, k); // this is inefficient, it's doing 9 instead of 6 ekerns
+				int sc=ekern(s, str, dev, k)+ekern(s, str+s, dev+s, k)+rate(2, m, dev+s-1, k); // this is inefficient, it's doing 9 instead of 6 ekerns
 				if(sc>maxsc)
 				{
 					maxsc=sc;
@@ -144,7 +146,7 @@ int ekern(size_t n, const char *str, signed char *dev, const KERN *k)
 		}
 		dev[s-1]=mi-1;
 		dev[s]=mj-1;
-		return(ekern(s, str, dev, k)+ekern(s, str+s, dev+s, k)+rate(m, dev+s-1, k));
+		return(ekern(s, str, dev, k)+ekern(s, str+s, dev+s, k)+rate(2, m, dev+s-1, k));
 	}
 }
 

@@ -6,7 +6,7 @@
 
 SDL_Surface *ginit(unsigned int w, unsigned int h, unsigned char bpp);
 void pchar(SDL_Surface *scrn, unsigned int x, unsigned int y, char c);
-void pstr(SDL_Surface *scrn, unsigned int x, unsigned int y, char *s);
+void pstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s);
 
 SDL_Surface *letters[26];
 
@@ -170,7 +170,7 @@ void pchar(SDL_Surface *scrn, unsigned int x, unsigned int y, char c)
 	SDL_BlitSurface(letters[(unsigned char)c-97], NULL, scrn, &(SDL_Rect){x, y, 5, 8});
 }
 
-void pstr(SDL_Surface *scrn, unsigned int x, unsigned int y, char *s)
+void pstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s)
 {
 	if(!s) return;
 	while(*s)

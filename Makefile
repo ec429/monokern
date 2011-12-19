@@ -2,7 +2,10 @@
 CC := gcc
 CFLAGS := -Wall -Wextra -Werror -pedantic --std=gnu99 -g
 
-all: mk_kern mk_scores kernify kern.o
+all: mk_kern mk_scores kernify kern.o termk
+
+termk: termk.c kern.h kern.o
+	$(CC) $(CFLAGS) $(CPPFLAGS) $< $(LDFLAGS) kern.o -o $@ `sdl-config --cflags --libs` -lSDL_image
 
 mk_scores: mk_scores.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< $(LDFLAGS) -o $@

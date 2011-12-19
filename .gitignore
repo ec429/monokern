@@ -1,4 +1,5 @@
 mk_kern
 mk_scores
 kernify
+termk
 *.o

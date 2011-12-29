@@ -477,7 +477,7 @@ void cdown(terminal *t)
 		for(unsigned int i=0;i<t->nlines-1;i++)
 		{
 			memcpy(t->text[i], t->text[i+1], t->cols);
-			t->dirty[i]=true;
+			t->dirty[i]=true; // TODO: optimised scrolling (store separate 'deviations dirty' and 'screen dirty' state)
 		}
 		t->cur.y=t->nlines-1;
 		t->dirty[t->cur.y]=true;

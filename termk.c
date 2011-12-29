@@ -45,14 +45,18 @@ typedef struct
 	bool *dirty;
 	point cur;
 	point old;
+	point save; // saved cursor, ^[7 or ^[[s (restore with ^[8 or ^[[u)
+	bool decckm; // Application Cursor Keys
 	unsigned int esc;
 	char escd[256]; // escape codes buffer
+	bool csi; // in a ^[[
 }
 terminal;
 
 int initterm(terminal *t, unsigned int nlines, unsigned int rows, unsigned int cols);
 void cdown(terminal *t);
 void cright(terminal *t, bool wrap);
+int getpm(const char *escd, unsigned int *i, unsigned int *g, unsigned int e);
 
 int main(int argc, char *argv[])
 {
@@ -205,6 +209,10 @@ int main(int argc, char *argv[])
 					{
 						if((c==0x18)||(c==0x1a)) // CAN, SUB cancel escapes
 						{
+							fprintf(stderr, "termk: cancelled ESC:");
+							for(unsigned int i=0;i<t.esc;i++)
+								fprintf(stderr, " %02x", t.escd[i]);
+							fputc('\n', stderr);
 							t.esc=0;
 							c=0x7f; // replacement character
 							goto do_print;
@@ -212,92 +220,175 @@ int main(int argc, char *argv[])
 						else if(t.esc<256)
 						{
 							t.escd[t.esc++]=c;
-							switch(t.escd[1])
+							if(t.csi)
 							{
-								case '[':
-									if(t.esc>2)
+								// CSI format: CSI [0x20-0x3f]* [0x40-0x7E]
+								if((0x40<=c)&&(c<=0x7e)) // Final Byte
+								{
+									switch(c)
 									{
-										switch(t.escd[2])
+										case 0x4b: // CSI Ps K == Erase in Line (EL)
+											// TODO handle CSI ? Ps K == Selective Erase in Line (DECSEL)
 										{
-											case 'A': // ^[[A = cursor up
-												if(t.cur.y) t.cur.y--;
-												t.esc=0;
-											break;
-											case 'B': // ^[[B = cursor down
-												cdown(&t);
-												t.esc=0;
-											break;
-											case 'C': // ^[[C = cursor right
-												cright(&t, false);
-												t.esc=0;
-											break;
-											case 'D': // ^[[D = cursor left
-												if(t.cur.x) t.cur.x--;
-												t.esc=0;
-											break;
-											default:
-												if(isdigit(t.escd[2]))
+											unsigned int i=2,g;
+											if(!(getpm(t.escd, &i, &g, t.esc-1)))
+												g=0;
+											switch(g)
+											{
+												case 0: // Erase to Right
+													for(unsigned int i=t.cur.x;i<t.cols;i++)
+														t.text[t.cur.y][i]=' ';
+													t.dirty[t.cur.y]=true;
+												break;
+												default:
+													fprintf(stderr, "termk: unknown EL: %u\n", g); // for debugging
+												break;
+											}
+											t.esc=0;
+										}
+										break;
+										case 0x68: // CSI Pm h == Set Mode (SM)
+										{
+											bool decset=(t.escd[2]==0x3f); // CSI ? Pm h == DEC Private Mode Set (DECSET)
+											unsigned int i=decset?3:2;
+											unsigned int g;
+											while(getpm(t.escd, &i, &g, t.esc-1))
+											{
+												if(decset)
 												{
-													unsigned int i=3;
-													while((t.esc>i)&&isdigit(t.escd[i])) i++;
-													if(t.esc>i)
+													switch(g)
 													{
-														char num[i-1];
-														memcpy(num, t.escd+2, i-2);
-														num[i-2]=0;
-														unsigned int n;
-														sscanf(num, "%u", &n);
-														switch(t.escd[i])
-														{
-															case 'A': // ^[[nA = cursor up *n
-																if(t.cur.y>n) t.cur.y-=n;
-																else t.cur.y=0;
-																t.esc=0;
-															break;
-															case 'B': // ^[[nB = cursor down *n
-																for(unsigned int j=0;j<n;j++)
-																	cdown(&t);
-																t.esc=0;
-															break;
-															case 'C': // ^[[nC = cursor right *n
-																for(unsigned int j=0;j<n;j++)
-																	cright(&t, false);
-																t.esc=0;
-															break;
-															case 'D': // ^[[nD = cursor left *n
-																if(t.cur.x>n) t.cur.x-=n;
-																else t.cur.x=0;
-																t.esc=0;
-															break;
-															default:
-																t.esc=0;
-																c=0x7f;
-																goto do_print;
-															break;
-														}
-													}
-													else
-													{
-														t.esc=0;
-														c=0x7f;
-														goto do_print;
+														case 1: // DECSET 1 == Application Cursor Keys (DECCKM)
+															t.decckm=true;
+														break;
+														case 1049: // DECSET 1049 == Save cursor as in DECSC and use Alternate Screen Buffer, clearing it first
+															fprintf(stderr, "termk: warning: Alternate Screen buffer not supported\n"); // XXX
+														break;
+														default:
+															fprintf(stderr, "termk: unknown DECSET: %u\n", g); // for debugging
+														break;
 													}
 												}
 												else
 												{
-													t.esc=0;
-													c=0x7f;
-													goto do_print;
+													switch(g)
+													{
+														default:
+															fprintf(stderr, "termk: unknown SM: %u\n", g); // for debugging
+														break;
+													}
 												}
-											break;
+											}
+											t.esc=0;
 										}
+										break;
+										case 0x6c: // CSI Pm h == Reset Mode (RM)
+										{
+											bool decset=(t.escd[2]==0x3f); // CSI ? Pm h == DEC Private Mode Reset (DECRST)
+											unsigned int i=decset?3:2;
+											unsigned int g;
+											while(getpm(t.escd, &i, &g, t.esc-1))
+											{
+												if(decset)
+												{
+													switch(g)
+													{
+														case 1: // DECRST 1 == Normal Cursor Keys (DECCKM)
+															t.decckm=false;
+														break;
+														case 1049: // DECRST 1049 == Use Normal Screen Buffer and restore cursor as in DECRC.
+															fprintf(stderr, "termk: warning: Alternate Screen buffer not supported\n"); // XXX
+														break;
+														default:
+															fprintf(stderr, "termk: unknown DECRST: %u\n", g); // for debugging
+														break;
+													}
+												}
+												else
+												{
+													switch(g)
+													{
+														default:
+															fprintf(stderr, "termk: unknown RM: %u\n", g); // for debugging
+														break;
+													}
+												}
+											}
+											t.esc=0;
+										}
+										break;
+										case 0x6d: // CSI Pm m == Character Attributes (SGR)
+											// TODO handle CSI > Ps ; Ps m (Set or reset resource-values used by xterm...)
+											fprintf(stderr, "termk: warning: SGR not supported\n"); if(0)
+										{
+											unsigned int i=2,g;
+											while(getpm(t.escd, &i, &g, t.esc-1))
+											{
+												switch(g)
+												{
+													default:
+														fprintf(stderr, "termk: unknown SGR: %u\n", g); // for debugging
+													break;
+												}
+											}
+											t.esc=0;
+										}
+										break;
+										default:
+											fprintf(stderr, "termk: unknown CSI:");
+											for(unsigned int i=0;i<t.esc;i++)
+												fprintf(stderr, " %02x", t.escd[i]);
+											fputc('\n', stderr);
+											t.esc=0;
+											c=0x7f; // replacement character
+											goto do_print;
 									}
-								break;
-								default: // unrecognised escape code
+								}
+								else if((c<0x20)||(c>0x3f)) // not an Intermediate Byte either - error
+								{
+									fprintf(stderr, "termk: invalid CSI:");
+									for(unsigned int i=0;i<t.esc;i++)
+										fprintf(stderr, " %02x", t.escd[i]);
+									fputc('\n', stderr);
 									t.esc=0;
-									c=0x7f;
+									c=0x7f; // replacement character
 									goto do_print;
-								break;
+								}
+							}
+							else
+							{
+								// Escape codes format: ESC [0x20-0x2F]* [0x30-0x7E]
+								if((0x30<=c)&&(c<=0x7e)) // Final Byte
+								{
+									switch(c)
+									{
+										case '=': // ESC = == Application Keypad (DECPAM)
+											// XXX ignored
+											t.esc=0;
+										break;
+										case '[': // ESC [ == CSI
+											t.csi=true;
+										break;
+										default:
+											fprintf(stderr, "termk: unknown ESC:");
+											for(unsigned int i=0;i<t.esc;i++)
+												fprintf(stderr, " %02x", t.escd[i]);
+											fputc('\n', stderr);
+											t.esc=0;
+											c=0x7f; // replacement character
+											goto do_print;
+									}
+								}
+								else if((c<0x20)||(c>=0x7f)) // not an Intermediate Byte either - error
+								{
+									fprintf(stderr, "termk: invalid ESC:");
+									for(unsigned int i=0;i<t.esc;i++)
+										fprintf(stderr, " %02x", t.escd[i]);
+									fputc('\n', stderr);
+									t.esc=0;
+									c=0x7f; // replacement character
+									goto do_print;
+								}
 							}
 						}
 					}
@@ -325,10 +416,9 @@ int main(int argc, char *argv[])
 								t.cur.x=0;
 							break;
 							case 0x1b:
-								/*t.esc=1;
-								t.escd[0]=c;*/
-								c=0x7f;
-								goto do_print;
+								t.esc=1;
+								t.escd[0]=c;
+								t.csi=false;
 							break;
 						}
 					}
@@ -376,25 +466,25 @@ int main(int argc, char *argv[])
 						SDL_keysym key=event.key.keysym;
 						if(key.sym==SDLK_UP)
 						{
-							ssize_t b=write(ptmx, "\033[A", 3);
+							ssize_t b=write(ptmx, t.decckm?"\033OA":"\033[A", 3);
 							if(b<3)
 								perror("write");
 						}
 						else if(key.sym==SDLK_DOWN)
 						{
-							ssize_t b=write(ptmx, "\033[B", 3);
+							ssize_t b=write(ptmx, t.decckm?"\033OB":"\033[B", 3);
 							if(b<3)
 								perror("write");
 						}
 						else if(key.sym==SDLK_RIGHT)
 						{
-							ssize_t b=write(ptmx, "\033[C", 3);
+							ssize_t b=write(ptmx, t.decckm?"\033OC":"\033[C", 3);
 							if(b<3)
 								perror("write");
 						}
 						else if(key.sym==SDLK_LEFT)
 						{
-							ssize_t b=write(ptmx, "\033[D", 3);
+							ssize_t b=write(ptmx, t.decckm?"\033OD":"\033[D", 3);
 							if(b<3)
 								perror("write");
 						}
@@ -436,6 +526,8 @@ int initterm(terminal *t, unsigned int nlines, unsigned int rows, unsigned int c
 	t->cols=cols;
 	t->cur.x=0;
 	t->cur.y=nlines-rows;
+	t->save=t->cur;
+	t->decckm=false;
 	t->esc=0;
 	t->text=malloc(nlines*sizeof(char *));
 	if(!t->text)
@@ -497,6 +589,24 @@ void cright(terminal *t, bool wrap)
 		else
 			t->cur.x--;
 	}
+}
+
+int getpm(const char *escd, unsigned int *i, unsigned int *g, unsigned int e)
+{
+	unsigned int s=*i;
+	while(*i<e)
+	{
+		if(escd[*i]==';')
+			break;
+		else if(!isdigit(escd[*i]))
+			break;
+		(*i)++;
+	}
+	if(*i==s) return(0);
+	char d[*i+1-s];
+	memcpy(d, escd+s, *i-s);
+	d[*i-s]=0;
+	return(sscanf(d, "%u", g));
 }
 
 SDL_Surface *ginit(unsigned int w, unsigned int h, unsigned char bpp)

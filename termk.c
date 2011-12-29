@@ -27,7 +27,7 @@ void init_char(char **buf, int *l, int *i);
 void append_char(char **buf, int *l, int *i, char c);
 char * fgetl(FILE *fp);
 
-SDL_Surface *letters[95];
+SDL_Surface *letters[96];
 
 typedef struct
 {
@@ -45,12 +45,14 @@ typedef struct
 	bool *dirty;
 	point cur;
 	point old;
+	unsigned int esc;
+	char escd[256]; // escape codes buffer
 }
 terminal;
 
 int initterm(terminal *t, unsigned int nlines, unsigned int rows, unsigned int cols);
 void cdown(terminal *t);
-void cright(terminal *t);
+void cright(terminal *t, bool wrap);
 
 int main(int argc, char *argv[])
 {
@@ -70,7 +72,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "termk: ginit failed: %s\n", SDL_GetError());
 		return(EXIT_FAILURE);
 	}
-	for(int i=0;i<94;i++)
+	for(int i=0;i<96;i++)
 	{
 		char lfn[14];
 		sprintf(lfn, "as/as_%hhu.pbm", i+32);
@@ -92,7 +94,7 @@ int main(int argc, char *argv[])
 	terminal t;
 	if(initterm(&t, 24, 24, 80)) return(EXIT_FAILURE);
 	
-	int ptmx=open("/dev/ptmx", O_RDWR | O_NOCTTY);
+	int ptmx=open("/dev/ptmx", O_RDWR);
 	if(!ptmx)
 	{
 		perror("open");
@@ -109,14 +111,15 @@ int main(int argc, char *argv[])
 		return(EXIT_FAILURE);
 	}
 	
-	int fd=fork();
-	switch(fd)
+	pid_t pid=fork();
+	switch(pid)
 	{
 		case -1: // error
 			perror("fork");
 			return(EXIT_FAILURE);
 		break;
-		case 0:; // child
+		case 0: // child
+		setsid();
 		char *pts=ptsname(ptmx);
 		if(!pts)
 		{
@@ -182,41 +185,109 @@ int main(int argc, char *argv[])
 				if(b==0)
 				{
 					fprintf(stderr, "termk: EOF, unexpectedly (program exit)\n");
+					kill(pid, SIGKILL);
 					return(EXIT_SUCCESS);
 				}
 				else if(b<0)
 				{
 					perror("read");
+					kill(pid, SIGKILL);
 					return(EXIT_FAILURE);
 				}
 				else
 				{
 					t.old=t.cur;
-					if(c<0x20)
+					if(c==0x7f)
 					{
-						if(c=='\n')
-							cdown(&t);
-						else if(c=='\t')
+						c=0;
+					}
+					if(t.esc)
+					{
+						if((c==0x18)||(c==0x1a)) // CAN, SUB cancel escapes
 						{
-							cright(&t);
-							while(t.cur.x&7) cright(&t);
+							t.esc=0;
+							c=0x7f; // replacement character
+							goto do_print;
 						}
-						else if(c==8)
+						else if(t.esc<256)
 						{
-							if(t.cur.x) t.cur.x--;
+							t.escd[t.esc++]=c;
+							switch(t.escd[1])
+							{
+								case '[':
+									if(t.esc>2)
+									{
+										switch(t.escd[2])
+										{
+											case 'A': // ^[[A = cursor up
+												if(t.cur.y) t.cur.y--;
+												t.esc=0;
+											break;
+											case 'B': // ^[[B = cursor down
+												cdown(&t);
+												t.esc=0;
+											break;
+											case 'C': // ^[[C = cursor right
+												cright(&t, false);
+												t.esc=0;
+											break;
+											case 'D': // ^[[D = cursor left
+												if(t.cur.x) t.cur.x--;
+												t.esc=0;
+											break;
+											default:
+												t.esc=0;
+												c=0x7f;
+												goto do_print;
+											break;
+										}
+									}
+								break;
+								default: // unrecognised escape code
+									t.esc=0;
+									c=0x7f;
+									goto do_print;
+								break;
+							}
 						}
-						else if(c==0x1b) // ESC
+					}
+					else if(c<0x20)
+					{
+						switch(c)
 						{
-							// TODO: escape codes
+							case 7: // BEL
+								//bell()
+							break;
+							case 8: // BS
+								if(t.cur.x) t.cur.x--;
+							break;
+							case 9: // HT
+								cright(&t, true);
+								while(t.cur.x&7) cright(&t, true);
+							break;
+							case 0xa: // LF
+							case 0xb: // VT
+							case 0xc: // FF
+								t.cur.x=0;
+								cdown(&t);
+							break;
+							case 0xd: // CR
+								t.cur.x=0;
+							break;
+							case 0x1b:
+								t.esc=1;
+								t.escd[0]=c;
+							break;
 						}
 					}
 					else
 					{
+						do_print:
 						t.text[t.cur.y][t.cur.x]=c;
-						cright(&t);
+						cright(&t, true);
+						t.dirty[t.old.y]=true;
+						t.dirty[t.cur.y]=true;
 					}
-					t.dirty[t.old.y]=true;
-					t.dirty[t.cur.y]=true;
 				}
 			}
 			else
@@ -227,9 +298,10 @@ int main(int argc, char *argv[])
 					{
 						SDL_FillRect(screen, &(SDL_Rect){0, 4+i*13, 500, 13}, SDL_MapRGB(screen->format, 0, 0, 0));
 						kdstr(screen, 4, 4+i*13, t.text[t.nlines+i-t.rows], k); // TODO attributes
+						t.dirty[i]=false;
 					}
 				}
-				SDL_FillRect(screen, &(SDL_Rect){4+t.cur.x*6, 4+t.cur.y*13, 5, 12}, SDL_MapRGB(screen->format, 255, 255, 255)); // XXX hacky
+				//SDL_FillRect(screen, &(SDL_Rect){4+t.cur.x*6, 4+t.cur.y*13, 5, 12}, SDL_MapRGB(screen->format, 255, 255, 255)); // XXX hacky
 				SDL_Flip(screen);
 			}
 			for(int fd=0;fd<=fdmax;fd++)
@@ -243,14 +315,38 @@ int main(int argc, char *argv[])
 			switch(event.type)
 			{
 				case SDL_QUIT:
-					kill(fd, SIGKILL);
+					kill(pid, SIGKILL);
 					return(EXIT_SUCCESS);
 				break;
 				case SDL_KEYDOWN:
 					if(event.key.type==SDL_KEYDOWN)
 					{
 						SDL_keysym key=event.key.keysym;
-						if((key.unicode&0xFF80)==0)
+						if(key.sym==SDLK_UP)
+						{
+							ssize_t b=write(ptmx, "\033[A", 3);
+							if(b<3)
+								perror("write");
+						}
+						else if(key.sym==SDLK_DOWN)
+						{
+							ssize_t b=write(ptmx, "\033[B", 3);
+							if(b<3)
+								perror("write");
+						}
+						else if(key.sym==SDLK_RIGHT)
+						{
+							ssize_t b=write(ptmx, "\033[C", 3);
+							if(b<3)
+								perror("write");
+						}
+						else if(key.sym==SDLK_LEFT)
+						{
+							ssize_t b=write(ptmx, "\033[D", 3);
+							if(b<3)
+								perror("write");
+						}
+						else if((key.unicode&0xFF80)==0)
 						{
 							char k=key.unicode&0x7F;
 							if(k)
@@ -288,6 +384,7 @@ int initterm(terminal *t, unsigned int nlines, unsigned int rows, unsigned int c
 	t->cols=cols;
 	t->cur.x=0;
 	t->cur.y=nlines-rows;
+	t->esc=0;
 	t->text=malloc(nlines*sizeof(char *));
 	if(!t->text)
 	{
@@ -323,7 +420,6 @@ int initterm(terminal *t, unsigned int nlines, unsigned int rows, unsigned int c
 
 void cdown(terminal *t)
 {
-	t->cur.x=0;
 	if(++t->cur.y>=t->nlines)
 	{
 		for(unsigned int i=0;i<t->nlines-1;i++)
@@ -337,11 +433,17 @@ void cdown(terminal *t)
 	}
 }
 
-void cright(terminal *t)
+void cright(terminal *t, bool wrap)
 {
 	if(++t->cur.x>=t->cols)
 	{
-		cdown(t);
+		if(wrap)
+		{
+			t->cur.x=0;
+			cdown(t);
+		}
+		else
+			t->cur.x--;
 	}
 }
 
@@ -365,7 +467,7 @@ SDL_Surface *ginit(unsigned int w, unsigned int h, unsigned char bpp)
 
 void pchar(SDL_Surface *scrn, unsigned int x, unsigned int y, char c)
 {
-	if((c>=32)&&(c<127))
+	if((signed char)c>=32)
 		SDL_BlitSurface(letters[(unsigned char)c-32], NULL, scrn, &(SDL_Rect){x, y, 5, 8});
 }
 

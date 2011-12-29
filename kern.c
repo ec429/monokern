@@ -6,7 +6,7 @@
 
 struct _kern
 {
-	int score[95][95][3];
+	int score[96][96][3];
 };
 
 int rate(size_t n, const char *str, const signed char *dev, const KERN *k);
@@ -19,8 +19,8 @@ char * kern_fgetl(FILE *fp);
 KERN *kern_init(FILE *fp)
 {
 	KERN *rv=malloc(sizeof(KERN));
-	for(int i=0;i<95;i++)
-		for(int j=0;j<95;j++)
+	for(int i=0;i<96;i++)
+		for(int j=0;j<96;j++)
 			rv->score[i][j][0]=(rv->score[i][j][1]=rv->score[i][j][2]=0)-15;
 	if(!fp) return(rv);
 	while(!feof(fp))
@@ -79,7 +79,7 @@ int rate(size_t n, const char *str, const signed char *dev, const KERN *k)
 		{
 			int c=str[i-2];
 			c-=32;
-			if((c>=0)&&(c<95))
+			if((c>=0)&&(c<96))
 			{
 				int osp=dev[i-1]-dev[i-2];
 				if((k->score[a][b][0]>0)&&(k->score[c][a][0]>0))
@@ -184,13 +184,13 @@ int kern(const char *str, signed char *dev, const KERN *k)
 	int score=0;
 	while(*str)
 	{
-		if(*str==' ')
+		if((*str==' ')||(*str==0x7f))
 		{
 			*dev++=0;
 			str++;
 			continue;
 		}
-		size_t p=strcspn(str, " ");
+		size_t p=strcspn(str, " \177");
 		int maxsc=INT_MIN, mi=0, mj=0;
 		for(int i=0;i<3;i++)
 		{

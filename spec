@@ -39,9 +39,3 @@ n		cost
 
 worst case is for n=2^k
 c(2^k)=6c(2^(k-1))+9=O(6^k)=O(n^(log2(6))~=O(n^2.585) which is good enough
-
-Things to do:
-1. Implement the above algorithm taking as input a table of pair scores (or class-pair scores?)
-2. Create a table of pair scores for some suitable monospace font (eg. the xterm default VT font)
-3. Implement a routine to draw text using the results of (1) and (2) above.
-4. Either proselytise terminal developers, or write a simple terminal emulator from scratch, or fork an existing terminal emulator.

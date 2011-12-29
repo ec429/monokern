@@ -5,10 +5,13 @@ PREFIX := /usr/local
 
 all: mk_kern mk_scores kernify kern.o termk
 
-install: $(PREFIX)/bin/termk
+install: $(PREFIX)/bin/termk $(PREFIX)/share/sounds/bell.wav
 
 $(PREFIX)/bin/termk: termk
-	install -D termk $(PREFIX)/bin/termk
+	install -D $< $@
+
+$(PREFIX)/share/sounds/bell.wav: bell.wav
+	install -D $< $@
 
 termk: termk.c kern.h kern.o
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< $(LDFLAGS) kern.o -o $@ `sdl-config --cflags --libs` -lSDL_image

@@ -359,7 +359,7 @@ int main(int argc, char *argv[])
 						switch(c)
 						{
 							case 7: // BEL
-								//bell()
+								system("aplay /usr/local/share/sounds/bell.wav 2>/dev/null &"); // TODO find a better way of doing this
 							break;
 							case 8: // BS
 								if(t.cur.x) t.cur.x--;

@@ -256,23 +256,23 @@ int main(int argc, char *argv[])
 							{
 								switch(c)
 								{
-									case 'A':
+									case 'A': // cursor up
 										if(t.cur.y) t.cur.y--;
 										t.esc=0;
 									break;
-									case 'B':
+									case 'B': // cursor down
 										cdown(&t);
 										t.esc=0;
 									break;
-									case 'C':
+									case 'C': // cursor right
 										cright(&t, false);
 										t.esc=0;
 									break;
-									case 'D':
+									case 'D': // cursor left
 										if(t.cur.x) t.cur.x--;
 										t.esc=0;
 									break;
-									case 'H':
+									case 'H': // cursor to home position
 										t.cur.x=t.cur.y=0;
 										t.esc=0;
 									break;
@@ -290,7 +290,7 @@ int main(int argc, char *argv[])
 										memset(t.dev[0], 0, t.cols);
 										t.esc=0;
 									break;
-									case 'J':
+									case 'J': // clear to end of screen
 									{
 										unsigned int y=t.cur.y,x=t.cur.x;
 										while(y<t.rows)
@@ -303,7 +303,7 @@ int main(int argc, char *argv[])
 									}
 										t.esc=0;
 									break;
-									case 'K':
+									case 'K': // clear to end of line
 									{
 										unsigned int x=t.cur.x;
 										while(x<t.cols)
@@ -314,6 +314,10 @@ int main(int argc, char *argv[])
 									break;
 									case 'Y': // cursor move (takes 2 more bytes)
 										// nothing
+									break;
+									case 'Z': // Identify
+										do_write(ptmx, "\033/Z"); // "I'm a VT52"
+										t.esc=0;
 									break;
 									case '[':
 										// suck it up, it's not a vt52 sequence but the sending application doesn't know what it's doing

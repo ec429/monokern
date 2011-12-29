@@ -227,11 +227,23 @@ int main(int argc, char *argv[])
 								{
 									switch(c)
 									{
+										case 0x48: // CSI Ps ; Ps H == Cursor Position [row;column] (default = [1,1]) (CUP).
+										{
+											unsigned int i=2,y,x;
+											if(!getpm(t.escd, &i, &y, t.esc-1))
+												y=1;
+											if(!getpm(t.escd, &i, &x, t.esc-1))
+												x=1;
+											t.cur.y=min(max(y, 1), t.rows)-1;
+											t.cur.x=min(max(x, 1), t.cols)-1;
+											t.esc=0;
+										}
+										break;
 										case 0x4b: // CSI Ps K == Erase in Line (EL)
 											// TODO handle CSI ? Ps K == Selective Erase in Line (DECSEL)
 										{
 											unsigned int i=2,g;
-											if(!(getpm(t.escd, &i, &g, t.esc-1)))
+											if(!getpm(t.escd, &i, &g, t.esc-1))
 												g=0;
 											switch(g)
 											{
@@ -331,8 +343,8 @@ int main(int argc, char *argv[])
 													break;
 												}
 											}
-											t.esc=0;
 										}
+											t.esc=0;
 										break;
 										default:
 											fprintf(stderr, "termk: unknown CSI:");
@@ -363,6 +375,10 @@ int main(int argc, char *argv[])
 									switch(c)
 									{
 										case '=': // ESC = == Application Keypad (DECPAM)
+											// XXX ignored
+											t.esc=0;
+										break;
+										case '>': // ESC > == Normal Keypad (DECPNM)
 											// XXX ignored
 											t.esc=0;
 										break;

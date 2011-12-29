@@ -403,26 +403,26 @@ int main(int argc, char *argv[])
 						SDL_keysym key=event.key.keysym;
 						if(key.sym==SDLK_UP)
 						{
-							ssize_t b=write(ptmx, "\033[A", 3);
-							if(b<3)
+							ssize_t b=write(ptmx, "\033A", 2);
+							if(b<2)
 								perror("write");
 						}
 						else if(key.sym==SDLK_DOWN)
 						{
-							ssize_t b=write(ptmx, "\033[B", 3);
-							if(b<3)
+							ssize_t b=write(ptmx, "\033B", 2);
+							if(b<2)
 								perror("write");
 						}
 						else if(key.sym==SDLK_RIGHT)
 						{
-							ssize_t b=write(ptmx, "\033[C", 3);
-							if(b<3)
+							ssize_t b=write(ptmx, "\033C", 2);
+							if(b<2)
 								perror("write");
 						}
 						else if(key.sym==SDLK_LEFT)
 						{
-							ssize_t b=write(ptmx, "\033[D", 3);
-							if(b<3)
+							ssize_t b=write(ptmx, "\033D", 2);
+							if(b<2)
 								perror("write");
 						}
 						else if((key.unicode&0xFF80)==0)

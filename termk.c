@@ -20,8 +20,8 @@
 SDL_Surface *ginit(unsigned int w, unsigned int h, unsigned char bpp);
 void pchar(SDL_Surface *scrn, unsigned int x, unsigned int y, char c);
 void pstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s);
-void dpstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s, const signed char *dev);
-void kdstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s, const KERN *k);
+void dpstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s, const signed char *dev, bool iscy, unsigned int cx);
+void invert(SDL_Surface *scrn, SDL_Rect r);
 
 void init_char(char **buf, int *l, int *i);
 void append_char(char **buf, int *l, int *i, char c);
@@ -42,14 +42,12 @@ typedef struct
 	unsigned int rows; // screen size
 	unsigned int cols;
 	char **text;
-	bool *dirty;
+	signed char **dev;
+	bool (*dirty)[2]; // [0]=dev, [1]=screen
 	point cur;
 	point old;
-	point save; // saved cursor, ^[7 or ^[[s (restore with ^[8 or ^[[u)
-	bool decckm; // Application Cursor Keys
 	unsigned int esc;
 	char escd[256]; // escape codes buffer
-	bool csi; // in a ^[[
 }
 terminal;
 
@@ -258,10 +256,12 @@ int main(int argc, char *argv[])
 										for(unsigned int i=t.nlines-1;i>0;i--)
 										{
 											memcpy(t.text[i], t.text[i-1], t.cols);
-											t.dirty[i]=true; // TODO: optimised scrolling (store separate 'deviations dirty' and 'screen dirty' state)
+											t.dirty[i][1]=true;
 										}
-										t.dirty[0]=true;
+										t.dirty[0][0]=false;
+										t.dirty[0][1]=true;
 										memset(t.text[0], ' ', t.cols);
+										memset(t.dev[0], 0, t.cols);
 										t.esc=0;
 									break;
 									case 'J':
@@ -272,7 +272,7 @@ int main(int argc, char *argv[])
 											while(x<t.cols)
 												t.text[y][x++]=' ';
 											x=0;
-											t.dirty[y++]=true;
+											t.dirty[y++][0]=true;
 										}
 									}
 										t.esc=0;
@@ -282,7 +282,7 @@ int main(int argc, char *argv[])
 										unsigned int x=t.cur.x;
 										while(x<t.cols)
 											t.text[t.cur.y][x++]=' ';
-										t.dirty[t.cur.y]=true;
+										t.dirty[t.cur.y][0]=true;
 									}
 										t.esc=0;
 									break;
@@ -338,7 +338,6 @@ int main(int argc, char *argv[])
 							case 0x1b:
 								t.esc=1;
 								t.escd[0]=c;
-								t.csi=false;
 							break;
 						}
 					}
@@ -347,8 +346,8 @@ int main(int argc, char *argv[])
 						do_print:
 						t.text[t.cur.y][t.cur.x]=c;
 						cright(&t, false);
-						t.dirty[t.old.y]=true;
-						t.dirty[t.cur.y]=true;
+						t.dirty[t.old.y][0]=true;
+						t.dirty[t.cur.y][0]=true;
 					}
 				}
 			}
@@ -356,11 +355,17 @@ int main(int argc, char *argv[])
 			{
 				for(unsigned int i=0;i<t.rows;i++)
 				{
-					if(t.dirty[i])
+					if(t.dirty[i][0])
+					{
+						kern(t.text[t.nlines+i-t.rows], t.dev[t.nlines+i-t.rows], k);
+						t.dirty[i][0]=false;
+						t.dirty[i][1]=true;
+					}
+					if(t.dirty[i][1]||(i==t.cur.y)||(i==t.old.y))
 					{
 						SDL_FillRect(screen, &(SDL_Rect){0, 4+i*13, 500, 13}, SDL_MapRGB(screen->format, 0, 0, 0));
-						kdstr(screen, 4, 4+i*13, t.text[t.nlines+i-t.rows], k); // TODO attributes
-						t.dirty[i]=false;
+						dpstr(screen, 4, 4+i*13, t.text[t.nlines+i-t.rows], t.dev[t.nlines+i-t.rows], i==t.cur.y, t.cur.x);
+						t.dirty[i][1]=false;
 					}
 				}
 				//SDL_FillRect(screen, &(SDL_Rect){4+t.cur.x*6, 4+t.cur.y*13, 5, 12}, SDL_MapRGB(screen->format, 255, 255, 255)); // XXX hacky
@@ -386,25 +391,25 @@ int main(int argc, char *argv[])
 						SDL_keysym key=event.key.keysym;
 						if(key.sym==SDLK_UP)
 						{
-							ssize_t b=write(ptmx, t.decckm?"\033OA":"\033[A", 3);
+							ssize_t b=write(ptmx, "\033[A", 3);
 							if(b<3)
 								perror("write");
 						}
 						else if(key.sym==SDLK_DOWN)
 						{
-							ssize_t b=write(ptmx, t.decckm?"\033OB":"\033[B", 3);
+							ssize_t b=write(ptmx, "\033[B", 3);
 							if(b<3)
 								perror("write");
 						}
 						else if(key.sym==SDLK_RIGHT)
 						{
-							ssize_t b=write(ptmx, t.decckm?"\033OC":"\033[C", 3);
+							ssize_t b=write(ptmx, "\033[C", 3);
 							if(b<3)
 								perror("write");
 						}
 						else if(key.sym==SDLK_LEFT)
 						{
-							ssize_t b=write(ptmx, t.decckm?"\033OD":"\033[D", 3);
+							ssize_t b=write(ptmx, "\033[D", 3);
 							if(b<3)
 								perror("write");
 						}
@@ -446,8 +451,6 @@ int initterm(terminal *t, unsigned int nlines, unsigned int rows, unsigned int c
 	t->cols=cols;
 	t->cur.x=0;
 	t->cur.y=nlines-rows;
-	t->save=t->cur;
-	t->decckm=false;
 	t->esc=0;
 	t->text=malloc(nlines*sizeof(char *));
 	if(!t->text)
@@ -455,29 +458,56 @@ int initterm(terminal *t, unsigned int nlines, unsigned int rows, unsigned int c
 		perror("initterm: malloc");
 		return(-1);
 	}
-	t->dirty=malloc(nlines*sizeof(bool));
-	if(!t->dirty)
+	t->dev=malloc(nlines*sizeof(signed char *));
+	if(!t->dev)
 	{
 		free(t->text);
 		perror("initterm: malloc");
 		return(-1);
 	}
+	t->dirty=malloc(nlines*sizeof(bool[2]));
+	if(!t->dirty)
+	{
+		free(t->text);
+		free(t->dev);
+		perror("initterm: malloc");
+		return(-1);
+	}
 	for(unsigned int i=0;i<nlines;i++)
 	{
-		t->dirty[i]=true;
-		t->text[i]=malloc(cols*sizeof(char *));
+		t->dirty[i][0]=false;
+		t->dirty[i][1]=true;
+		t->text[i]=malloc(cols);
 		if(!t->text[i])
 		{
 			perror("initterm: malloc");
 			for(;i>0;)
-			{
 				free(t->text[--i]);
-				free(t->text);
-				return(2);
+			free(t->text);
+			free(t->dev);
+			free(t->dirty);
+			return(2);
+		}
+		t->dev[i]=malloc(cols);
+		if(!t->dev[i])
+		{
+			perror("initterm: malloc");
+			for(;i>0;)
+			{
+				free(t->text[i]);
+				free(t->dev[--i]);
 			}
+			free(t->text[0]);
+			free(t->text);
+			free(t->dev);
+			free(t->dirty);
+			return(2);
 		}
 		for(unsigned int j=0;j<cols;j++)
+		{
 			t->text[i][j]=' ';
+			t->dev[i][j]=0;
+		}
 	}
 	return(0);
 }
@@ -489,11 +519,15 @@ void cdown(terminal *t)
 		for(unsigned int i=0;i<t->nlines-1;i++)
 		{
 			memcpy(t->text[i], t->text[i+1], t->cols);
-			t->dirty[i]=true; // TODO: optimised scrolling (store separate 'deviations dirty' and 'screen dirty' state)
+			memcpy(t->dev[i], t->dev[i+1], t->cols);
+			t->dirty[i][0]=t->dirty[i+1][0];
+			t->dirty[i][1]=true;
 		}
 		t->cur.y=t->nlines-1;
-		t->dirty[t->cur.y]=true;
+		t->dirty[t->cur.y][0]=false;
+		t->dirty[t->cur.y][1]=true;
 		memset(t->text[t->cur.y], ' ', t->cols);
+		memset(t->dev[t->cur.y], 0, t->cols);
 	}
 }
 
@@ -550,7 +584,7 @@ SDL_Surface *ginit(unsigned int w, unsigned int h, unsigned char bpp)
 void pchar(SDL_Surface *scrn, unsigned int x, unsigned int y, char c)
 {
 	if((signed char)c>=32)
-		SDL_BlitSurface(letters[(unsigned char)c-32], NULL, scrn, &(SDL_Rect){x, y, 5, 8});
+		SDL_BlitSurface(letters[(unsigned char)c-32], NULL, scrn, &(SDL_Rect){x, y, 0, 0});
 }
 
 void pstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s)
@@ -563,21 +597,32 @@ void pstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s)
 	}
 }
 
-void dpstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s, const signed char *dev)
+void dpstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s, const signed char *dev, bool iscy, unsigned int cx)
 {
 	if(!s) return;
+	unsigned int scx=0;
 	while(*s)
 	{
-		pchar(scrn, x+*dev++, y, *s++);
+		pchar(scrn, x+*dev, y, *s++);
+		if(iscy&&(scx==cx))
+			invert(scrn, (SDL_Rect){x+*dev, y, 5, 12});
+		dev++;
 		x+=6;
+		scx++;
 	}
 }
 
-void kdstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s, const KERN *k)
+void invert(SDL_Surface *scrn, SDL_Rect r)
 {
-	signed char *dev=malloc(strlen(s));
-	kern(s, dev, k);
-	dpstr(scrn, x, y, s, dev);
+	for(int x=r.x;x<r.x+r.w;x++)
+		for(int y=r.y;y<r.y+r.h;y++)
+		{
+			long int s_off = (y*scrn->pitch) + x*scrn->format->BytesPerPixel;
+			unsigned char *pixloc = ((unsigned char *)scrn->pixels)+s_off;
+			pixloc[0]^=0xFF;
+			pixloc[1]^=0xFF;
+			pixloc[2]^=0xFF;
+		}	
 }
 
 char * fgetl(FILE *fp)

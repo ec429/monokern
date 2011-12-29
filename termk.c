@@ -204,7 +204,6 @@ int main(int argc, char *argv[])
 				}
 				else
 				{
-					t.old=t.cur;
 					if(c==0x7f)
 					{
 						c=0;
@@ -345,9 +344,8 @@ int main(int argc, char *argv[])
 					{
 						do_print:
 						t.text[t.cur.y][t.cur.x]=c;
-						cright(&t, false);
-						t.dirty[t.old.y][0]=true;
 						t.dirty[t.cur.y][0]=true;
+						cright(&t, false);
 					}
 				}
 			}
@@ -368,8 +366,8 @@ int main(int argc, char *argv[])
 						t.dirty[i][1]=false;
 					}
 				}
-				//SDL_FillRect(screen, &(SDL_Rect){4+t.cur.x*6, 4+t.cur.y*13, 5, 12}, SDL_MapRGB(screen->format, 255, 255, 255)); // XXX hacky
 				SDL_Flip(screen);
+				t.old=t.cur;
 			}
 			for(int fd=0;fd<=fdmax;fd++)
 			{

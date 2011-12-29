@@ -206,6 +206,10 @@ int main(int argc, char *argv[])
 					{
 						c=0;
 					}
+					else if((signed char)c<0)
+					{
+						c=0x7f;
+					}
 					if(t.esc)
 					{
 						if((c==0x18)||(c==0x1a)) // CAN, SUB cancel escapes
@@ -245,6 +249,16 @@ int main(int argc, char *argv[])
 										t.cur.x=t.cur.y=0;
 										t.esc=0;
 									break;
+									case 'I': // reverse line feed
+										for(unsigned int i=t.nlines-1;i>0;i--)
+										{
+											memcpy(t.text[i], t.text[i-1], t.cols);
+											t.dirty[i]=true; // TODO: optimised scrolling (store separate 'deviations dirty' and 'screen dirty' state)
+										}
+										t.dirty[0]=true;
+										memset(t.text[0], ' ', t.cols);
+										t.esc=0;
+									break;
 									case 'J':
 									{
 										unsigned int y=t.cur.y,x=t.cur.x;
@@ -267,6 +281,9 @@ int main(int argc, char *argv[])
 									}
 										t.esc=0;
 									break;
+									case 'Y': // cursor move (takes 2 more bytes)
+										// nothing
+									break;
 									default:
 										fprintf(stderr, "termk: unknown ESC:");
 										for(unsigned int i=0;i<t.esc;i++)
@@ -280,8 +297,13 @@ int main(int argc, char *argv[])
 							}
 							else
 							{
-								// TODO handle this case
-								t.esc=0;
+								if(t.esc==4)
+								{
+									// ESC Y Ps Ps, cursor move
+									t.cur.y=min(max(t.escd[2]-32, 0), t.rows-1);
+									t.cur.x=min(max(t.escd[3]-32, 0), t.cols-1);
+									t.esc=0;
+								}
 							}
 						}
 					}

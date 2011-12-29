@@ -62,11 +62,16 @@ int main(int argc, char *argv[])
 {
 	const char *program="sh";
 	char *fake_arg=NULL, *const *argp=&fake_arg;
-	for(int arg=1;arg<argc;arg++)
+	if(argc>1)
 	{
-		if((strcmp(argv[arg], "--help")==0)||(strcmp(argv[arg], "-h")==0))
+		if((strcmp(argv[1], "--help")==0)||(strcmp(argv[1], "-h")==0))
 		{
 			fprintf(stderr, "Usage: termk [<program> [--args <args> [...]]]\n");
+		}
+		else
+		{
+			program=argv[1];
+			argp=argv+1;
 		}
 	}
 	

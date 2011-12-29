@@ -61,16 +61,37 @@ int main(int argc, char *argv[])
 {
 	const char *program="sh";
 	char *fake_arg=NULL, *const *argp=&fake_arg;
-	if(argc>1)
+	bool green=false;
+	for(int arg=1;arg<argc;arg++)
 	{
-		if((strcmp(argv[1], "--help")==0)||(strcmp(argv[1], "-h")==0))
+		if(argv[arg][0]=='-')
 		{
-			fprintf(stderr, "Usage: termk [<program> [--args <args> [...]]]\n");
+			if(strcmp(argv[arg], "--")==0)
+			{
+				program=argv[arg+1];
+				argp=argv+arg+1;
+				break;
+			}
+			else if((strcmp(argv[arg], "--help")==0)||(strcmp(argv[arg], "-h")==0))
+			{
+				fprintf(stderr, "Usage: termk [<opts>] [<program> [<args>]]\n");
+				fprintf(stderr, "Options:\n\t--\t\tEnd option list (for <program> beginning with '-')\n\t--green\t\tUse green display filter\n");
+				return(EXIT_SUCCESS);
+			}
+			else if(strcmp(argv[arg], "--green")==0)
+			{
+				green=true;
+			}
+			else
+			{
+				fprintf(stderr, "termk: unrecognised option, ignoring: %s\n", argv[arg]);
+			}
 		}
 		else
 		{
-			program=argv[1];
-			argp=argv+1;
+			program=argv[arg];
+			argp=argv+arg;
+			break;
 		}
 	}
 	
@@ -381,7 +402,7 @@ int main(int argc, char *argv[])
 						t.dirty[i][1]=false;
 					}
 				}
-				filter(screen, (SDL_Rect){0, 0, screen->w, screen->h});
+				if(green) filter(screen, (SDL_Rect){0, 0, screen->w, screen->h});
 				SDL_Flip(screen);
 				t.old=t.cur;
 			}

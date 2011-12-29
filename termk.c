@@ -100,7 +100,7 @@ int main(int argc, char *argv[])
 	fclose(kf);
 	
 	terminal t;
-	if(initterm(&t, 24, 24, 80)) return(EXIT_FAILURE);
+	if(initterm(&t, 256, 24, 80)) return(EXIT_FAILURE);
 	
 	int ptmx=open("/dev/ptmx", O_RDWR);
 	if(!ptmx)
@@ -368,17 +368,18 @@ int main(int argc, char *argv[])
 			{
 				for(unsigned int i=0;i<t.rows;i++)
 				{
-					if(t.dirty[i][0])
+					unsigned int j=t.nlines+i-t.rows;
+					if(t.dirty[j][0])
 					{
-						kern(t.text[t.nlines+i-t.rows], t.dev[t.nlines+i-t.rows], k);
-						t.dirty[i][0]=false;
-						t.dirty[i][1]=true;
+						kern(t.text[j], t.dev[j], k);
+						t.dirty[j][0]=false;
+						t.dirty[j][1]=true;
 					}
-					if(t.dirty[i][1]||(i==t.cur.y)||(i==t.old.y))
+					if(t.dirty[j][1]||(i==t.cur.y)||(i==t.old.y))
 					{
 						SDL_FillRect(screen, &(SDL_Rect){0, 4+i*13, 500, 13}, SDL_MapRGB(screen->format, 0, 0, 0));
-						dpstr(screen, 4, 4+i*13, t.text[t.nlines+i-t.rows], t.dev[t.nlines+i-t.rows], i==t.cur.y, t.cur.x);
-						t.dirty[i][1]=false;
+						dpstr(screen, 4, 4+i*13, t.text[j], t.dev[j], i==t.cur.y, t.cur.x);
+						t.dirty[j][1]=false;
 					}
 				}
 				filter(screen, (SDL_Rect){0, 0, screen->w, screen->h});

@@ -508,7 +508,7 @@ int initterm(terminal *t, unsigned int nlines, unsigned int rows, unsigned int c
 	{
 		t->dirty[i][0]=false;
 		t->dirty[i][1]=true;
-		t->text[i]=malloc(cols);
+		t->text[i]=malloc(cols+1);
 		if(!t->text[i])
 		{
 			perror("initterm: malloc");
@@ -519,7 +519,7 @@ int initterm(terminal *t, unsigned int nlines, unsigned int rows, unsigned int c
 			free(t->dirty);
 			return(2);
 		}
-		t->dev[i]=malloc(cols);
+		t->dev[i]=malloc(cols+1);
 		if(!t->dev[i])
 		{
 			perror("initterm: malloc");
@@ -539,6 +539,7 @@ int initterm(terminal *t, unsigned int nlines, unsigned int rows, unsigned int c
 			t->text[i][j]=' ';
 			t->dev[i][j]=0;
 		}
+		t->text[i][cols]=0;
 	}
 	return(0);
 }

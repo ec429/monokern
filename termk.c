@@ -22,6 +22,7 @@ void pchar(SDL_Surface *scrn, unsigned int x, unsigned int y, char c);
 void pstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s);
 void dpstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s, const signed char *dev, bool iscy, unsigned int cx);
 void invert(SDL_Surface *scrn, SDL_Rect r);
+void filter(SDL_Surface *scrn, SDL_Rect r);
 
 void init_char(char **buf, int *l, int *i);
 void append_char(char **buf, int *l, int *i, char c);
@@ -380,6 +381,7 @@ int main(int argc, char *argv[])
 						t.dirty[i][1]=false;
 					}
 				}
+				filter(screen, (SDL_Rect){0, 0, screen->w, screen->h});
 				SDL_Flip(screen);
 				t.old=t.cur;
 			}
@@ -636,6 +638,20 @@ void invert(SDL_Surface *scrn, SDL_Rect r)
 			pixloc[2]^=0xFF;
 		}	
 }
+
+void filter(SDL_Surface *scrn, SDL_Rect r)
+{
+	for(int x=r.x;x<r.x+r.w;x++)
+		for(int y=r.y;y<r.y+r.h;y++)
+		{
+			long int s_off = (y*scrn->pitch) + x*scrn->format->BytesPerPixel;
+			unsigned char *pixloc = ((unsigned char *)scrn->pixels)+s_off;
+			pixloc[0]=0;
+			pixloc[1]=(pixloc[1]&0x80)?0xc0:0x20;
+			pixloc[2]=0;
+		}	
+}
+
 
 char * fgetl(FILE *fp)
 {

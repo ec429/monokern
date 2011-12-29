@@ -124,6 +124,7 @@ int main(int argc, char *argv[])
 		break;
 		case 0: // child
 		setsid();
+		setenv("TERM", "vt52", 1);
 		char *pts=ptsname(ptmx);
 		if(!pts)
 		{
@@ -220,191 +221,67 @@ int main(int argc, char *argv[])
 						else if(t.esc<256)
 						{
 							t.escd[t.esc++]=c;
-							if(t.csi)
+							if(t.esc==2)
 							{
-								// CSI format: CSI [0x20-0x3f]* [0x40-0x7E]
-								if((0x40<=c)&&(c<=0x7e)) // Final Byte
+								switch(c)
 								{
-									switch(c)
+									case 'A':
+										if(t.cur.y) t.cur.y--;
+										t.esc=0;
+									break;
+									case 'B':
+										cdown(&t);
+										t.esc=0;
+									break;
+									case 'C':
+										cright(&t, false);
+										t.esc=0;
+									break;
+									case 'D':
+										if(t.cur.x) t.cur.x--;
+										t.esc=0;
+									break;
+									case 'H':
+										t.cur.x=t.cur.y=0;
+										t.esc=0;
+									break;
+									case 'J':
 									{
-										case 0x48: // CSI Ps ; Ps H == Cursor Position [row;column] (default = [1,1]) (CUP).
+										unsigned int y=t.cur.y,x=t.cur.x;
+										while(y<t.rows)
 										{
-											unsigned int i=2,y,x;
-											if(!getpm(t.escd, &i, &y, t.esc-1))
-												y=1;
-											if(!getpm(t.escd, &i, &x, t.esc-1))
-												x=1;
-											t.cur.y=min(max(y, 1), t.rows)-1;
-											t.cur.x=min(max(x, 1), t.cols)-1;
-											t.esc=0;
+											while(x<t.cols)
+												t.text[y][x++]=' ';
+											x=0;
+											t.dirty[y++]=true;
 										}
-										break;
-										case 0x4b: // CSI Ps K == Erase in Line (EL)
-											// TODO handle CSI ? Ps K == Selective Erase in Line (DECSEL)
-										{
-											unsigned int i=2,g;
-											if(!getpm(t.escd, &i, &g, t.esc-1))
-												g=0;
-											switch(g)
-											{
-												case 0: // Erase to Right
-													for(unsigned int i=t.cur.x;i<t.cols;i++)
-														t.text[t.cur.y][i]=' ';
-													t.dirty[t.cur.y]=true;
-												break;
-												default:
-													fprintf(stderr, "termk: unknown EL: %u\n", g); // for debugging
-												break;
-											}
-											t.esc=0;
-										}
-										break;
-										case 0x68: // CSI Pm h == Set Mode (SM)
-										{
-											bool decset=(t.escd[2]==0x3f); // CSI ? Pm h == DEC Private Mode Set (DECSET)
-											unsigned int i=decset?3:2;
-											unsigned int g;
-											while(getpm(t.escd, &i, &g, t.esc-1))
-											{
-												if(decset)
-												{
-													switch(g)
-													{
-														case 1: // DECSET 1 == Application Cursor Keys (DECCKM)
-															t.decckm=true;
-														break;
-														case 1049: // DECSET 1049 == Save cursor as in DECSC and use Alternate Screen Buffer, clearing it first
-															fprintf(stderr, "termk: warning: Alternate Screen buffer not supported\n"); // XXX
-														break;
-														default:
-															fprintf(stderr, "termk: unknown DECSET: %u\n", g); // for debugging
-														break;
-													}
-												}
-												else
-												{
-													switch(g)
-													{
-														default:
-															fprintf(stderr, "termk: unknown SM: %u\n", g); // for debugging
-														break;
-													}
-												}
-											}
-											t.esc=0;
-										}
-										break;
-										case 0x6c: // CSI Pm h == Reset Mode (RM)
-										{
-											bool decset=(t.escd[2]==0x3f); // CSI ? Pm h == DEC Private Mode Reset (DECRST)
-											unsigned int i=decset?3:2;
-											unsigned int g;
-											while(getpm(t.escd, &i, &g, t.esc-1))
-											{
-												if(decset)
-												{
-													switch(g)
-													{
-														case 1: // DECRST 1 == Normal Cursor Keys (DECCKM)
-															t.decckm=false;
-														break;
-														case 1049: // DECRST 1049 == Use Normal Screen Buffer and restore cursor as in DECRC.
-															fprintf(stderr, "termk: warning: Alternate Screen buffer not supported\n"); // XXX
-														break;
-														default:
-															fprintf(stderr, "termk: unknown DECRST: %u\n", g); // for debugging
-														break;
-													}
-												}
-												else
-												{
-													switch(g)
-													{
-														default:
-															fprintf(stderr, "termk: unknown RM: %u\n", g); // for debugging
-														break;
-													}
-												}
-											}
-											t.esc=0;
-										}
-										break;
-										case 0x6d: // CSI Pm m == Character Attributes (SGR)
-											// TODO handle CSI > Ps ; Ps m (Set or reset resource-values used by xterm...)
-											fprintf(stderr, "termk: warning: SGR not supported\n"); if(0)
-										{
-											unsigned int i=2,g;
-											while(getpm(t.escd, &i, &g, t.esc-1))
-											{
-												switch(g)
-												{
-													default:
-														fprintf(stderr, "termk: unknown SGR: %u\n", g); // for debugging
-													break;
-												}
-											}
-										}
-											t.esc=0;
-										break;
-										default:
-											fprintf(stderr, "termk: unknown CSI:");
-											for(unsigned int i=0;i<t.esc;i++)
-												fprintf(stderr, " %02x", t.escd[i]);
-											fputc('\n', stderr);
-											t.esc=0;
-											c=0x7f; // replacement character
-											goto do_print;
 									}
-								}
-								else if((c<0x20)||(c>0x3f)) // not an Intermediate Byte either - error
-								{
-									fprintf(stderr, "termk: invalid CSI:");
-									for(unsigned int i=0;i<t.esc;i++)
-										fprintf(stderr, " %02x", t.escd[i]);
-									fputc('\n', stderr);
-									t.esc=0;
-									c=0x7f; // replacement character
-									goto do_print;
+										t.esc=0;
+									break;
+									case 'K':
+									{
+										unsigned int x=t.cur.x;
+										while(x<t.cols)
+											t.text[t.cur.y][x++]=' ';
+										t.dirty[t.cur.y]=true;
+									}
+										t.esc=0;
+									break;
+									default:
+										fprintf(stderr, "termk: unknown ESC:");
+										for(unsigned int i=0;i<t.esc;i++)
+											fprintf(stderr, " %02x", t.escd[i]);
+										fputc('\n', stderr);
+										t.esc=0;
+										c=0x7f; // replacement character
+										goto do_print;
+									break;
 								}
 							}
 							else
 							{
-								// Escape codes format: ESC [0x20-0x2F]* [0x30-0x7E]
-								if((0x30<=c)&&(c<=0x7e)) // Final Byte
-								{
-									switch(c)
-									{
-										case '=': // ESC = == Application Keypad (DECPAM)
-											// XXX ignored
-											t.esc=0;
-										break;
-										case '>': // ESC > == Normal Keypad (DECPNM)
-											// XXX ignored
-											t.esc=0;
-										break;
-										case '[': // ESC [ == CSI
-											t.csi=true;
-										break;
-										default:
-											fprintf(stderr, "termk: unknown ESC:");
-											for(unsigned int i=0;i<t.esc;i++)
-												fprintf(stderr, " %02x", t.escd[i]);
-											fputc('\n', stderr);
-											t.esc=0;
-											c=0x7f; // replacement character
-											goto do_print;
-									}
-								}
-								else if((c<0x20)||(c>=0x7f)) // not an Intermediate Byte either - error
-								{
-									fprintf(stderr, "termk: invalid ESC:");
-									for(unsigned int i=0;i<t.esc;i++)
-										fprintf(stderr, " %02x", t.escd[i]);
-									fputc('\n', stderr);
-									t.esc=0;
-									c=0x7f; // replacement character
-									goto do_print;
-								}
+								// TODO handle this case
+								t.esc=0;
 							}
 						}
 					}
@@ -419,8 +296,8 @@ int main(int argc, char *argv[])
 								if(t.cur.x) t.cur.x--;
 							break;
 							case 9: // HT
-								cright(&t, true);
-								while(t.cur.x&7) cright(&t, true);
+								cright(&t, false);
+								while(t.cur.x&7) cright(&t, false);
 							break;
 							case 0xa: // LF
 							case 0xb: // VT
@@ -442,7 +319,7 @@ int main(int argc, char *argv[])
 					{
 						do_print:
 						t.text[t.cur.y][t.cur.x]=c;
-						cright(&t, true);
+						cright(&t, false);
 						t.dirty[t.old.y]=true;
 						t.dirty[t.cur.y]=true;
 					}

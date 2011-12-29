@@ -236,9 +236,59 @@ int main(int argc, char *argv[])
 												t.esc=0;
 											break;
 											default:
-												t.esc=0;
-												c=0x7f;
-												goto do_print;
+												if(isdigit(t.escd[2]))
+												{
+													unsigned int i=3;
+													while((t.esc>i)&&isdigit(t.escd[i])) i++;
+													if(t.esc>i)
+													{
+														char num[i-1];
+														memcpy(num, t.escd+2, i-2);
+														num[i-2]=0;
+														unsigned int n;
+														sscanf(num, "%u", &n);
+														switch(t.escd[i])
+														{
+															case 'A': // ^[[nA = cursor up *n
+																if(t.cur.y>n) t.cur.y-=n;
+																else t.cur.y=0;
+																t.esc=0;
+															break;
+															case 'B': // ^[[nB = cursor down *n
+																for(unsigned int j=0;j<n;j++)
+																	cdown(&t);
+																t.esc=0;
+															break;
+															case 'C': // ^[[nC = cursor right *n
+																for(unsigned int j=0;j<n;j++)
+																	cright(&t, false);
+																t.esc=0;
+															break;
+															case 'D': // ^[[nD = cursor left *n
+																if(t.cur.x>n) t.cur.x-=n;
+																else t.cur.x=0;
+																t.esc=0;
+															break;
+															default:
+																t.esc=0;
+																c=0x7f;
+																goto do_print;
+															break;
+														}
+													}
+													else
+													{
+														t.esc=0;
+														c=0x7f;
+														goto do_print;
+													}
+												}
+												else
+												{
+													t.esc=0;
+													c=0x7f;
+													goto do_print;
+												}
 											break;
 										}
 									}
@@ -275,8 +325,10 @@ int main(int argc, char *argv[])
 								t.cur.x=0;
 							break;
 							case 0x1b:
-								t.esc=1;
-								t.escd[0]=c;
+								/*t.esc=1;
+								t.escd[0]=c;*/
+								c=0x7f;
+								goto do_print;
 							break;
 						}
 					}

@@ -5,3 +5,4 @@ The basic idea behind monokern is /deviation kerning/: any individual character 
 
 To display an 80x24 text monokerned: ./kernify <text
 To build your own kerning tables: ./mk_kern > mk_runs/foo; cat mk_runs/* | ./mk_scores > scores
+To run a terminal that monokerns text (with, alas, limited support for control sequences): ./termk [shell]

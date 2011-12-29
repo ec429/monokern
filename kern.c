@@ -135,6 +135,12 @@ int ekern(size_t n, const char *str, signed char *dev, const KERN *k)
 		dev[2]=mj-1;
 		return(maxsc);
 	}
+	else if(n>30)
+	{
+		for(unsigned int i=0;i<n;i++)
+			dev[i]=0;
+		return(0);
+	}
 	else if(n&1)
 	{
 		int s=n>>1;

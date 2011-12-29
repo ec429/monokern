@@ -279,6 +279,8 @@ int main(int argc, char *argv[])
 										for(unsigned int i=t.nlines-1;i>0;i--)
 										{
 											memcpy(t.text[i], t.text[i-1], t.cols);
+											memcpy(t.dev[i], t.dev[i-1], t.cols);
+											t.dirty[i][0]=t.dirty[i-1][0];
 											t.dirty[i][1]=true;
 										}
 										t.dirty[0][0]=false;

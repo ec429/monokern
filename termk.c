@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -30,12 +31,20 @@ SDL_Surface *letters[95];
 
 typedef struct
 {
+	unsigned int y;
+	unsigned int x;
+}
+point;
+
+typedef struct
+{
 	unsigned int nlines; // scrollback size
 	unsigned int rows; // screen size
 	unsigned int cols;
 	char **text;
-	unsigned int cury;
-	unsigned int curx;
+	bool *dirty;
+	point cur;
+	point old;
 }
 terminal;
 
@@ -150,6 +159,7 @@ int main(int argc, char *argv[])
 	int fdmax=ptmx;
 	struct timeval tv;
 	
+	SDL_FillRect(screen, &(SDL_Rect){0, 0, 500, 320}, SDL_MapRGB(screen->format, 0, 0, 0));
 	SDL_Flip(screen);
 	SDL_EnableUNICODE(1);
 	SDL_Event event;
@@ -181,15 +191,19 @@ int main(int argc, char *argv[])
 				}
 				else
 				{
+					t.old=t.cur;
 					if(c<0x20)
 					{
 						if(c=='\n')
 							cdown(&t);
 						else if(c=='\t')
-							while(t.curx&7) cright(&t);
+						{
+							cright(&t);
+							while(t.cur.x&7) cright(&t);
+						}
 						else if(c==8)
 						{
-							if(t.curx) t.curx--;
+							if(t.cur.x) t.cur.x--;
 						}
 						else if(c==0x1b) // ESC
 						{
@@ -198,15 +212,25 @@ int main(int argc, char *argv[])
 					}
 					else
 					{
-						t.text[t.cury][t.curx]=c;
+						t.text[t.cur.y][t.cur.x]=c;
 						cright(&t);
 					}
-					SDL_FillRect(screen, &(SDL_Rect){0, 0, 500, 320}, SDL_MapRGB(screen->format, 0, 0, 0));
-					for(unsigned int i=0;i<t.nlines;i++) // TODO optimise redraws
-						kdstr(screen, 4, 4+i*13, t.text[i], k); // TODO attributes
-					SDL_FillRect(screen, &(SDL_Rect){4+t.curx*6, 4+t.cury*13, 5, 12}, SDL_MapRGB(screen->format, 255, 255, 255)); // XXX hacky
-					SDL_Flip(screen);
+					t.dirty[t.old.y]=true;
+					t.dirty[t.cur.y]=true;
 				}
+			}
+			else
+			{
+				for(unsigned int i=0;i<t.rows;i++)
+				{
+					if(t.dirty[i])
+					{
+						SDL_FillRect(screen, &(SDL_Rect){0, 4+i*13, 500, 13}, SDL_MapRGB(screen->format, 0, 0, 0));
+						kdstr(screen, 4, 4+i*13, t.text[t.nlines+i-t.rows], k); // TODO attributes
+					}
+				}
+				SDL_FillRect(screen, &(SDL_Rect){4+t.cur.x*6, 4+t.cur.y*13, 5, 12}, SDL_MapRGB(screen->format, 255, 255, 255)); // XXX hacky
+				SDL_Flip(screen);
 			}
 			for(int fd=0;fd<=fdmax;fd++)
 			{
@@ -248,8 +272,6 @@ int main(int argc, char *argv[])
 				break;*/
 			}
 		}
-		else
-			SDL_Delay(20);
 	}
 	return(0);
 }
@@ -264,16 +286,24 @@ int initterm(terminal *t, unsigned int nlines, unsigned int rows, unsigned int c
 	t->nlines=nlines;
 	t->rows=rows;
 	t->cols=cols;
-	t->curx=0;
-	t->cury=nlines-rows;
+	t->cur.x=0;
+	t->cur.y=nlines-rows;
 	t->text=malloc(nlines*sizeof(char *));
 	if(!t->text)
 	{
 		perror("initterm: malloc");
 		return(-1);
 	}
+	t->dirty=malloc(nlines*sizeof(bool));
+	if(!t->dirty)
+	{
+		free(t->text);
+		perror("initterm: malloc");
+		return(-1);
+	}
 	for(unsigned int i=0;i<nlines;i++)
 	{
+		t->dirty[i]=true;
 		t->text[i]=malloc(cols*sizeof(char *));
 		if(!t->text[i])
 		{
@@ -293,19 +323,23 @@ int initterm(terminal *t, unsigned int nlines, unsigned int rows, unsigned int c
 
 void cdown(terminal *t)
 {
-	t->curx=0;
-	if(++t->cury>=t->nlines)
+	t->cur.x=0;
+	if(++t->cur.y>=t->nlines)
 	{
 		for(unsigned int i=0;i<t->nlines-1;i++)
+		{
 			memcpy(t->text[i], t->text[i+1], t->cols);
-		t->cury=t->nlines-1;
-		memset(t->text[t->cury], ' ', t->cols);
+			t->dirty[i]=true;
+		}
+		t->cur.y=t->nlines-1;
+		t->dirty[t->cur.y]=true;
+		memset(t->text[t->cur.y], ' ', t->cols);
 	}
 }
 
 void cright(terminal *t)
 {
-	if(++t->curx>=t->cols)
+	if(++t->cur.x>=t->cols)
 	{
 		cdown(t);
 	}

@@ -199,11 +199,13 @@ int main(int argc, char *argv[])
 	SDL_EnableUNICODE(1);
 	SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL);
 	SDL_Event event;
+	bool do_update=true;
 	int errupt=0;
 	while(!errupt)
 	{
 		readfds=master;
-		tv.tv_sec=tv.tv_usec=0;
+		tv.tv_sec=0;
+		tv.tv_usec=do_update?0:25000;
 		if(select(fdmax+1, &readfds, NULL, NULL, &tv)==-1)
 		{
 			if(errno!=EINTR) // nobody cares if select() was interrupted by a signal
@@ -391,6 +393,7 @@ int main(int argc, char *argv[])
 						cright(&t, false);
 					}
 				}
+				do_update=true;
 			}
 			else
 			{
@@ -412,15 +415,12 @@ int main(int argc, char *argv[])
 				if(green) filter(screen, (SDL_Rect){0, 0, screen->w, screen->h});
 				SDL_Flip(screen);
 				t.old=t.cur;
-			}
-			for(int fd=0;fd<=fdmax;fd++)
-			{
-				if(FD_ISSET(fd, &readfds))
-					FD_CLR(fd, &readfds);
+				do_update=false;
 			}
 		}
 		if(SDL_PollEvent(&event))
 		{
+			do_update=true;
 			switch(event.type)
 			{
 				case SDL_QUIT:

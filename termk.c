@@ -27,6 +27,7 @@ void filter(SDL_Surface *scrn, SDL_Rect r);
 void init_char(char **buf, int *l, int *i);
 void append_char(char **buf, int *l, int *i, char c);
 char * fgetl(FILE *fp);
+void do_write(int fd, const char *);
 
 SDL_Surface *letters[96];
 
@@ -426,30 +427,23 @@ int main(int argc, char *argv[])
 					if(event.key.type==SDL_KEYDOWN)
 					{
 						SDL_keysym key=event.key.keysym;
+						SDLMod mod=SDL_GetModState();
 						if(key.sym==SDLK_UP)
-						{
-							ssize_t b=write(ptmx, "\033A", 2);
-							if(b<2)
-								perror("write");
-						}
+							do_write(ptmx, "\033A");
 						else if(key.sym==SDLK_DOWN)
-						{
-							ssize_t b=write(ptmx, "\033B", 2);
-							if(b<2)
-								perror("write");
-						}
+							do_write(ptmx, "\033B");
 						else if(key.sym==SDLK_RIGHT)
-						{
-							ssize_t b=write(ptmx, "\033C", 2);
-							if(b<2)
-								perror("write");
-						}
+							do_write(ptmx, (mod&KMOD_CTRL)?"\033f":"\033C"); // M-f is a readline-ism
 						else if(key.sym==SDLK_LEFT)
-						{
-							ssize_t b=write(ptmx, "\033D", 2);
-							if(b<2)
-								perror("write");
-						}
+							do_write(ptmx, (mod&KMOD_CTRL)?"\033b":"\033D"); // M-b is a readline-ism
+						/* begin readline-isms */
+						else if(key.sym==SDLK_HOME)
+							do_write(ptmx, "\001"); // C-a
+						else if(key.sym==SDLK_END)
+							do_write(ptmx, "\005"); // C-e
+						else if(key.sym==SDLK_DELETE)
+							do_write(ptmx, "\004"); // C-d
+						/* end readline-isms */
 						else if((key.unicode&0xFF80)==0)
 						{
 							char k=key.unicode&0x7F;
@@ -739,4 +733,12 @@ void init_char(char **buf, int *l, int *i)
 	*buf=(char *)malloc(*l);
 	(*buf)[0]=0;
 	*i=0;
+}
+
+void do_write(int fd, const char *s)
+{
+	ssize_t l=strlen(s);
+	ssize_t b=write(fd, s, l);
+	if(b<l)
+		perror("write");
 }

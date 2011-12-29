@@ -288,6 +288,9 @@ int main(int argc, char *argv[])
 									case 'Y': // cursor move (takes 2 more bytes)
 										// nothing
 									break;
+									case '[':
+										// suck it up, it's not a vt52 sequence but the sending application doesn't know what it's doing
+									break;
 									default:
 										fprintf(stderr, "termk: unknown ESC:");
 										for(unsigned int i=0;i<t.esc;i++)
@@ -301,12 +304,21 @@ int main(int argc, char *argv[])
 							}
 							else
 							{
-								if(t.esc==4)
+								switch(t.escd[1])
 								{
-									// ESC Y Ps Ps, cursor move
-									t.cur.y=min(max(t.escd[2]-32, 0), t.rows-1);
-									t.cur.x=min(max(t.escd[3]-32, 0), t.cols-1);
-									t.esc=0;
+									case 'Y': // cursor move (takes 2 more bytes)
+										if(t.esc==4)
+										{
+											// ESC Y Ps Ps, cursor move
+											t.cur.y=min(max(t.escd[2]-32, 0), t.rows-1);
+											t.cur.x=min(max(t.escd[3]-32, 0), t.cols-1);
+											t.esc=0;
+										}
+									break;
+									case '[': // broken non-vt52 sequence ^[[m sent by some errant programs
+										if(c=='m')
+											t.esc=0;
+									break;
 								}
 							}
 						}

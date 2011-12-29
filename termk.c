@@ -172,7 +172,9 @@ int main(int argc, char *argv[])
 	
 	SDL_FillRect(screen, &(SDL_Rect){0, 0, 500, 320}, SDL_MapRGB(screen->format, 0, 0, 0));
 	SDL_Flip(screen);
+	SDL_WM_SetCaption(program, program);
 	SDL_EnableUNICODE(1);
+	SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL);
 	SDL_Event event;
 	int errupt=0;
 	while(!errupt)

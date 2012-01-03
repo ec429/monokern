@@ -7,7 +7,15 @@ SDL_Surface *pbm_string(string s)
 	if(s.i<3) return(NULL);
 	if(strncmp(s.buf, "P4\n", 3)) return(NULL);
 	unsigned int w, h;
-	unsigned int i=3,j=i;
+	unsigned int i=3,j;
+	if(i==s.i) return(NULL);
+	while(s.buf[i]=='#')
+	{
+		unsigned int l=strcspn(s.buf+i, "\n");
+		if(i+l>=s.i) return(NULL);
+		i+=l;
+	}
+	j=i;
 	while(i<s.i)
 	{
 		if(s.buf[i]==' ') break;

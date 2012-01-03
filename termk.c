@@ -30,8 +30,27 @@ void filter(SDL_Surface *scrn, SDL_Rect r);
 
 void do_write(int fd, const char *);
 
+typedef struct
+{
+	SDL_Surface *data;
+	unsigned char what[3];
+	signed char spa[2];
+}
+lig;
+
+typedef struct
+{
+	char *name;
+	SDL_Surface *data;
+}
+lid;
+
 SDL_Surface *letters[96];
 SDL_Surface *metas[32]; // from M-_ to M-~
+unsigned int nlids;
+lid *lids;
+unsigned int nligs;
+lig *ligs;
 
 typedef struct
 {
@@ -112,6 +131,9 @@ int main(int argc, char *argv[])
 		letters[i]=NULL;
 	for(unsigned int i=0;i<32;i++)
 		metas[i]=NULL;
+	nlids=0;
+	lids=NULL;
+	string ligatures=null_string();
 	FILE *kfa=fopen(PREFIX"/share/fonts/as.termkf", "r");
 	if(!kfa)
 	{
@@ -160,12 +182,134 @@ int main(int argc, char *argv[])
 				return(EXIT_FAILURE);
 			}
 		}
+		else if(strncmp(kfb.ents[i].name.buf, "li_", 3)==0)
+		{
+			char *dot=strrchr(kfb.ents[i].name.buf, '.');
+			if(dot)
+			{
+				lid l;
+				*dot=0;
+				l.name=strdup(kfb.ents[i].name.buf+3);
+				*dot='.';
+				if(!(l.data=pbm_string(kfb.ents[i].data)))
+				{
+					free(l.name);
+					fprintf(stderr, "termk: bad li/%s\n", kfb.ents[i].name.buf);
+					return(EXIT_FAILURE);
+				}
+				unsigned int n=nlids++;
+				lid *nl;
+				if(!(nl=realloc(lids, nlids*sizeof(lid))))
+				{
+					free(l.name);
+					free(l.data);
+					perror("termk: realloc");
+					return(EXIT_FAILURE);
+				}
+				(lids=nl)[n]=l;
+			}
+			else
+			{
+				fprintf(stderr, "termk: bad li/%s\n", kfb.ents[i].name.buf);
+				return(EXIT_FAILURE);
+			}
+		}
+		else if(strcmp(kfb.ents[i].name.buf, "ligatures")==0)
+		{
+			ligatures=kfb.ents[i].data;
+		}
 		else if(strcmp(kfb.ents[i].name.buf, "scores")==0)
 		{
 			k=kern_init_s(kfb.ents[i].data);
 		}
 	}
 	kf_free(kfb);
+	
+	nligs=0;
+	ligs=NULL;
+	if(ligatures.i)
+	{
+		unsigned int i=0;
+		while(i<ligatures.i)
+		{
+			lig l;
+			l.what[0]=ligatures.buf[i++];
+			if(i==ligatures.i)
+			{
+				fprintf(stderr, "termk: bad ligatures file\n");
+				return(EXIT_FAILURE);
+			}
+			l.spa[0]=ligatures.buf[i++];
+			if(l.spa[0]=='-') l.spa[0]=-1;
+			else if(l.spa[0]=='+') l.spa[0]=1;
+			if(i==ligatures.i)
+			{
+				fprintf(stderr, "termk: bad ligatures file\n");
+				return(EXIT_FAILURE);
+			}
+			l.what[1]=ligatures.buf[i++];
+			if(i==ligatures.i)
+			{
+				fprintf(stderr, "termk: bad ligatures file\n");
+				return(EXIT_FAILURE);
+			}
+			l.spa[1]=ligatures.buf[i++];
+			if(l.spa[1]=='-') l.spa[1]=-1;
+			else if(l.spa[1]=='+') l.spa[1]=1;
+			if(i==ligatures.i)
+			{
+				fprintf(stderr, "termk: bad ligatures file\n");
+				return(EXIT_FAILURE);
+			}
+			l.what[2]=ligatures.buf[i++];
+			if(i==ligatures.i)
+			{
+				fprintf(stderr, "termk: bad ligatures file\n");
+				return(EXIT_FAILURE);
+			}
+			if(ligatures.buf[i++]!=' ')
+			{
+				fprintf(stderr, "termk: bad ligatures file\n");
+				return(EXIT_FAILURE);
+			}
+			if(i==ligatures.i)
+			{
+				fprintf(stderr, "termk: bad ligatures file\n");
+				return(EXIT_FAILURE);
+			}
+			unsigned int tl=strcspn(ligatures.buf+i, "\n"), j;
+			for(j=0;j<nlids;j++)
+			{
+				if(strncmp(ligatures.buf+i, lids[j].name, tl)==0) break;
+			}
+			i+=tl;
+			if(j<nlids)
+			{
+				(l.data=lids[j].data)->refcount++;
+			}
+			else
+			{
+				fprintf(stderr, "termk: ligatures: %.*s not found\n", tl, ligatures.buf+i);
+				return(EXIT_FAILURE);
+			}
+			unsigned int n=nligs++;
+			lig *nl=realloc(ligs, nligs*sizeof(lig));
+			if(!nl)
+			{
+				SDL_FreeSurface(l.data);
+				perror("termk: realloc");
+				return(EXIT_FAILURE);
+			}
+			(ligs=nl)[n]=l;
+			if(i<ligatures.i) i++;
+		}
+	}
+	
+	for(unsigned int i=0;i<nlids;i++)
+	{
+		free(lids[i].name);
+		SDL_FreeSurface(lids[i].data);
+	}
 	
 	if(!k)
 	{
@@ -798,12 +942,32 @@ void dpstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s, con
 {
 	if(!s) return;
 	unsigned int scx=0;
-	while(*s)
+	while(s[scx])
 	{
-		pchar(scrn, x+*dev, y, *s++);
+		unsigned int i;
+		for(i=0;i<nligs;i++)
+		{
+			if(s[scx]==ligs[i].what[1])
+			{
+				if((!scx)||(ligs[i].what[0]=='*')||(s[scx-1]==ligs[i].what[0]))
+				{
+					if((!s[scx+1])||(ligs[i].what[2]=='*')||(s[scx+1]==ligs[i].what[2]))
+					{
+						if((!scx)||(ligs[i].spa[0]=='*')||(dev[scx]-dev[scx-1]==ligs[i].spa[0]))
+						{
+							if((!s[scx+1])||(ligs[i].spa[1]=='*')||(dev[scx+1]-dev[scx]==ligs[i].spa[1]))
+								break;
+						}
+					}
+				}
+			}
+		}
+		if(i==nligs)
+			pchar(scrn, x+dev[scx], y, s[scx]);
+		else
+			SDL_BlitSurface(ligs[i].data, NULL, scrn, &(SDL_Rect){x+dev[scx], y, 0, 0});
 		if(iscy&&(scx==cx))
-			invert(scrn, (SDL_Rect){x+*dev, y, 5, 12});
-		dev++;
+			invert(scrn, (SDL_Rect){x+dev[scx], y, 5, 12});
 		x+=6;
 		scx++;
 	}

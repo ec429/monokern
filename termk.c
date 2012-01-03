@@ -276,11 +276,11 @@ int main(int argc, char *argv[])
 					kill(pid, SIGKILL);
 					return(EXIT_SUCCESS);
 				}
-				else if(b<0)
+				else if(b<0) // this is what happens when the child closes
 				{
 					perror("read");
 					kill(pid, SIGKILL);
-					return(EXIT_FAILURE);
+					return(EXIT_SUCCESS);
 				}
 				else
 				{
@@ -619,6 +619,7 @@ int main(int argc, char *argv[])
 			}
 		}
 	}
+	kill(pid, SIGKILL);
 	return(0);
 }
 

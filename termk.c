@@ -345,7 +345,7 @@ int main(int argc, char *argv[])
 									case 'J': // clear to end of screen
 									{
 										unsigned int y=t.cur.y,x=t.cur.x;
-										while(y<t.rows)
+										while(y<t.nlines)
 										{
 											while(x<t.cols)
 												t.text[y][x++]=' ';
@@ -455,9 +455,6 @@ int main(int argc, char *argv[])
 			}
 			else
 			{
-				char wt[32];
-				snprintf(wt, 32, "%u %u", t.cur.y, t.cur.x);
-				SDL_WM_SetCaption(wt, wt);
 				for(unsigned int i=0;i<t.rows;i++)
 				{
 					unsigned int j=t.nlines+i-t.rows-t.scroll;

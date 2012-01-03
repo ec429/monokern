@@ -347,6 +347,11 @@ int main(int argc, char *argv[])
 		case 0: // child
 		setsid();
 		setenv("TERM", "vt52", 1);
+		char val[16];
+		snprintf(val, 16, "%u", t.rows);
+		setenv("LINES", val, 1);
+		snprintf(val, 16, "%u", t.cols);
+		setenv("COLUMNS", val, 1);
 		char *pts=ptsname(ptmx);
 		if(!pts)
 		{

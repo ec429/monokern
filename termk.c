@@ -262,7 +262,10 @@ int main(int argc, char *argv[])
 		if(select(fdmax+1, &readfds, NULL, NULL, &tv)==-1)
 		{
 			if(errno!=EINTR) // nobody cares if select() was interrupted by a signal
+			{
 				perror("select");
+				errupt++;
+			}
 		}
 		else
 		{

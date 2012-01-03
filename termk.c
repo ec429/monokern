@@ -45,6 +45,8 @@ typedef struct
 	unsigned int nlines; // scrollback size
 	unsigned int rows; // screen size
 	unsigned int cols;
+	unsigned int scroll; // amount view is scrolled by
+	unsigned int scrold;
 	char **text;
 	signed char **dev;
 	bool (*dirty)[2]; // [0]=dev, [1]=screen
@@ -298,7 +300,7 @@ int main(int argc, char *argv[])
 								switch(c)
 								{
 									case 'A': // cursor up
-										if(t.cur.y) t.cur.y--;
+										if(t.cur.y>(t.nlines-t.rows)) t.cur.y--;
 										t.esc=0;
 									break;
 									case 'B': // cursor down
@@ -322,7 +324,8 @@ int main(int argc, char *argv[])
 										t.esc=0;
 									break;
 									case 'H': // cursor to home position
-										t.cur.x=t.cur.y=0;
+										t.cur.x=0;
+										t.cur.y=t.nlines-t.rows;
 										t.esc=0;
 									break;
 									case 'I': // reverse line feed
@@ -390,7 +393,7 @@ int main(int argc, char *argv[])
 										if(t.esc==4)
 										{
 											// ESC Y Ps Ps, cursor move
-											t.cur.y=min(max(t.escd[2]-32, 0), t.rows-1);
+											t.cur.y=min(max(t.escd[2]-32, 0), t.rows-1)+t.nlines-t.rows;
 											t.cur.x=min(max(t.escd[3]-32, 0), t.cols-1);
 											t.esc=0;
 										}
@@ -448,19 +451,23 @@ int main(int argc, char *argv[])
 					}
 				}
 				do_update=true;
+				t.scroll=0;
 			}
 			else
 			{
+				char wt[32];
+				snprintf(wt, 32, "%u %u", t.cur.y, t.cur.x);
+				SDL_WM_SetCaption(wt, wt);
 				for(unsigned int i=0;i<t.rows;i++)
 				{
-					unsigned int j=t.nlines+i-t.rows;
+					unsigned int j=t.nlines+i-t.rows-t.scroll;
 					if(t.dirty[j][0])
 					{
 						kern(t.text[j], t.dev[j], k);
 						t.dirty[j][0]=false;
 						t.dirty[j][1]=true;
 					}
-					if(t.dirty[j][1]||(j==t.cur.y)||(j==t.old.y))
+					if(t.dirty[j][1]||(j==t.cur.y)||(j==t.old.y)||(t.scroll!=t.scrold))
 					{
 						SDL_FillRect(screen, &(SDL_Rect){0, 4+i*13, 500, 13}, SDL_MapRGB(screen->format, 0, 0, 0));
 						dpstr(screen, 4, 4+i*13, t.text[j], t.dev[j], j==t.cur.y, t.cur.x);
@@ -470,6 +477,7 @@ int main(int argc, char *argv[])
 				if(green) filter(screen, (SDL_Rect){0, 0, screen->w, screen->h});
 				SDL_Flip(screen);
 				t.old=t.cur;
+				t.scrold=t.scroll;
 				do_update=false;
 			}
 		}
@@ -516,13 +524,22 @@ int main(int argc, char *argv[])
 					}
 				break;
 				/*case SDL_MOUSEMOTION:
-					mousex=event.motion.x;
-					mousey=event.motion.y;
-				break;
-				case SDL_MOUSEBUTTONDOWN:
-					mousex=event.button.x;
-					mousey=event.button.y;
+					mouse.x=event.motion.x;
+					mouse.y=event.motion.y;
 				break;*/
+				case SDL_MOUSEBUTTONDOWN:
+					/*mouse.x=event.button.x;
+					mouse.y=event.button.y;*/
+					switch(event.button.button)
+					{
+						case SDL_BUTTON_WHEELUP:
+							t.scroll=min(t.scroll+4, t.nlines-t.rows);
+						break;
+						case SDL_BUTTON_WHEELDOWN:
+							t.scroll=max(t.scroll, 4)-4;
+						break;
+					}
+				break;
 			}
 		}
 	}
@@ -539,6 +556,7 @@ int initterm(terminal *t, unsigned int nlines, unsigned int rows, unsigned int c
 	t->nlines=nlines;
 	t->rows=rows;
 	t->cols=cols;
+	t->scroll=0;
 	t->cur.x=0;
 	t->cur.y=nlines-rows;
 	t->meta=false;

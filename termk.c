@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/select.h>
+#include <time.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <errno.h>
@@ -237,6 +238,7 @@ int main(int argc, char *argv[])
 	SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL);
 	SDL_Event event;
 	bool do_update=true;
+	time_t belt=0;
 	int errupt=0;
 	while(!errupt)
 	{
@@ -406,7 +408,14 @@ int main(int argc, char *argv[])
 						switch(c)
 						{
 							case 7: // BEL
-								system("aplay "PREFIX"/share/sounds/bell.wav 2>/dev/null &"); // TODO find a better way of doing this
+							{
+								time_t t=time(NULL);
+								if(belt<t)
+								{
+									system("aplay "PREFIX"/share/sounds/bell.wav 2>/dev/null &"); // TODO find a better way of doing this
+									belt=t;
+								}
+							}
 							break;
 							case 8: // BS
 								if(t.cur.x) t.cur.x--;

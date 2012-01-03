@@ -282,7 +282,6 @@ int main(int argc, char *argv[])
 			{
 				if(strncmp(ligatures.buf+i, lids[j].name, tl)==0) break;
 			}
-			i+=tl;
 			if(j<nlids)
 			{
 				(l.data=lids[j].data)->refcount++;
@@ -292,6 +291,7 @@ int main(int argc, char *argv[])
 				fprintf(stderr, "termk: ligatures: %.*s not found\n", tl, ligatures.buf+i);
 				return(EXIT_FAILURE);
 			}
+			i+=tl;
 			unsigned int n=nligs++;
 			lig *nl=realloc(ligs, nligs*sizeof(lig));
 			if(!nl)

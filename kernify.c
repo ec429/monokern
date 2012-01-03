@@ -11,10 +11,6 @@ void pstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s);
 void dpstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s, const signed char *dev);
 void kdstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s, const KERN *k);
 
-void init_char(char **buf, int *l, int *i);
-void append_char(char **buf, int *l, int *i, char c);
-char * fgetl(FILE *fp);
-
 SDL_Surface *letters[95];
 
 int main(void)
@@ -138,69 +134,4 @@ void kdstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s, con
 	signed char *dev=malloc(strlen(s));
 	kern(s, dev, k);
 	dpstr(scrn, x, y, s, dev);
-}
-
-char * fgetl(FILE *fp)
-{
-	char * lout;
-	int l,i;
-	init_char(&lout, &l, &i);
-	signed int c;
-	while(!feof(fp))
-	{
-		c=fgetc(fp);
-		if((c==EOF)||(c=='\n'))
-			break;
-		if(c=='\t')
-		{
-			append_char(&lout, &l, &i, ' ');
-			while(i&3)
-				append_char(&lout, &l, &i, ' ');
-		}
-		else if(c!=0)
-		{
-			append_char(&lout, &l, &i, c);
-		}
-	}
-	return(lout);
-}
-
-void append_char(char **buf, int *l, int *i, char c)
-{
-	if(!((c==0)||(c==EOF)))
-	{
-		if(*buf)
-		{
-			(*buf)[(*i)++]=c;
-		}
-		else
-		{
-			init_char(buf, l, i);
-			append_char(buf, l, i, c);
-		}
-		char *nbuf=*buf;
-		if((*i)>=(*l))
-		{
-			*l=*i*2;
-			nbuf=(char *)realloc(*buf, *l);
-		}
-		if(nbuf)
-		{
-			*buf=nbuf;
-			(*buf)[*i]=0;
-		}
-		else
-		{
-			free(*buf);
-			init_char(buf, l, i);
-		}
-	}
-}
-
-void init_char(char **buf, int *l, int *i)
-{
-	*l=80;
-	*buf=(char *)malloc(*l);
-	(*buf)[0]=0;
-	*i=0;
 }

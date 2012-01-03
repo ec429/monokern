@@ -12,8 +12,10 @@
 #include <SDL.h>
 #include <SDL_image.h>
 
+#include "bits.h"
 #include "kern.h"
 #include "kfa.h"
+#include "pbm.h"
 
 #define min(a,b)	((a)<(b)?(a):(b))
 #define max(a,b)	((a)>(b)?(a):(b))
@@ -102,10 +104,15 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "termk: ginit failed: %s\n", SDL_GetError());
 		return(EXIT_FAILURE);
 	}
+	KERN *k=NULL;
+	for(unsigned int i=0;i<96;i++)
+		letters[i]=NULL;
+	for(unsigned int i=0;i<32;i++)
+		metas[i]=NULL;
 	FILE *kfa=fopen(PREFIX"/share/fonts/as.termkf", "r");
 	if(!kfa)
 	{
-		perror("termk: fopen");
+		perror("termk: fopen: as.termkf");
 		return(EXIT_FAILURE);
 	}
 	kf_archive kfb;
@@ -115,31 +122,41 @@ int main(int argc, char *argv[])
 		return(EXIT_FAILURE);
 	}
 	fclose(kfa);
-	
-	for(int i=0;i<96;i++)
+	for(unsigned int i=0;i<kfb.nents;i++)
 	{
-		char lfn[14];
-		sprintf(lfn, "as/as_%hhu.pbm", i+32);
-		if(!(letters[i]=IMG_Load(lfn)))
+		unsigned char j;
+		if(sscanf(kfb.ents[i].name.buf, "as_%hhu.pbm", &j)==1)
 		{
-			fprintf(stderr, "termk: IMG_Load failed: %s\n", IMG_GetError());
-			return(EXIT_FAILURE);
+			if((j>=31)&&(j<128))
+				letters[j-32]=pbm_string(kfb.ents[i].data);
+			else
+			{
+				fprintf(stderr, "termk: bad as/%s\n", kfb.ents[i].name.buf);
+				return(EXIT_FAILURE);
+			}
+		}
+		else if(sscanf(kfb.ents[i].name.buf, "ma_%hhu.pbm", &j)==1)
+		{
+			if((j>=96)&&(j<128))
+				metas[j-96]=pbm_string(kfb.ents[i].data);
+			else
+			{
+				fprintf(stderr, "termk: bad ma/%s\n", kfb.ents[i].name.buf);
+				return(EXIT_FAILURE);
+			}
+		}
+		else if(strcmp(kfb.ents[i].name.buf, "scores")==0)
+		{
+			k=kern_init_s(kfb.ents[i].data);
 		}
 	}
-	for(int i=0;i<32;i++)
-	{
-		char lfn[14];
-		sprintf(lfn, "as/ma_%hhu.pbm", i+95);
-		metas[i]=IMG_Load(lfn); // if it failed, we'll just do replacement later
-	}
-	FILE *kf=fopen("scores", "r");
-	KERN *k=kern_init(kf);
+	kf_free(kfb);
+	
 	if(!k)
 	{
 		fprintf(stderr, "termk: kern_init failed\n");
 		return(EXIT_FAILURE);
 	}
-	fclose(kf);
 	
 	terminal t;
 	if(initterm(&t, 24, 24, 80)) return(EXIT_FAILURE);

@@ -42,7 +42,8 @@ int main(int argc, char *argv[])
 	{
 		const char *fname=entry->d_name;
 		off_t flen=strlen(fname);
-		if(strcmp(fname+flen-4, ".pbm")) continue;
+		if(strcmp(fname, ".")==0) continue;
+		if(strcmp(fname, "..")==0) continue;
 		if(flen>64)
 		{
 			fprintf(stderr, "fontify: filename too long: %s\n", fname);
@@ -82,10 +83,9 @@ int main(int argc, char *argv[])
 		return(1);
 	}
 	fputshort(nkf, fout);
-	unsigned int koff=2+nkf*73;
+	unsigned int koff=2+nkf*72;
 	for(unsigned int i=0;i<nkf;i++)
 	{
-		fputc(kfe[i].name.i, fout);
 		for(unsigned int b=0;b<64;b++)
 			if(b<kfe[i].name.i) fputc(kfe[i].name.buf[b], fout); else fputc(0, fout);
 		fputlong(koff, fout);

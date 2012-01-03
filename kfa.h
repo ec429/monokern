@@ -15,3 +15,4 @@ typedef struct
 kf_archive;
 
 int kf_read(FILE *kfa, kf_archive *buf);
+void kf_free(kf_archive kfb);

@@ -144,13 +144,13 @@ int ekern(size_t n, const char *str, signed char *dev, const KERN *k)
 		dev[2]=mj-1;
 		return(maxsc);
 	}
-	else if(n>30)
+	else if(n>40)
 	{
 		for(unsigned int i=0;i<n;i++)
 			dev[i]=0;
 		return(0);
 	}
-	else if(n&1)
+	else
 	{
 		int s=n>>1;
 		int maxsc=INT_MIN, mx=0;
@@ -166,30 +166,6 @@ int ekern(size_t n, const char *str, signed char *dev, const KERN *k)
 		}
 		dev[s]=mx-1;
 		return(ekern(s+1, str, dev, k)+ekern(s+1, str+s, dev+s, k));
-	}
-	else
-	{
-		int s=n>>1;
-		int maxsc=INT_MIN, mi=0, mj=0;
-		char m[3]={str[s-1],str[s],0};
-		for(int i=0;i<3;i++)
-		{
-			dev[s-1]=i-1;
-			for(int j=0;j<3;j++)
-			{
-				dev[s]=j-1;
-				int sc=ekern(s, str, dev, k)+ekern(s, str+s, dev+s, k)+rate(2, m, dev+s-1, k); // this is inefficient, it's doing 9 instead of 6 ekerns
-				if(sc>maxsc)
-				{
-					maxsc=sc;
-					mi=i;
-					mj=j;
-				}
-			}
-		}
-		dev[s-1]=mi-1;
-		dev[s]=mj-1;
-		return(ekern(s, str, dev, k)+ekern(s, str+s, dev+s, k)+rate(2, m, dev+s-1, k));
 	}
 }
 
@@ -213,6 +189,8 @@ int kern(const char *str, signed char *dev, const KERN *k)
 			dev[0]=i-1;
 			for(int j=0;j<3;j++)
 			{
+				if(!i&&!j) continue;
+				if(i+j>2) continue;
 				dev[p-1]=j-1;
 				int sc=ekern(p, str, dev, k);
 				if(sc>maxsc)

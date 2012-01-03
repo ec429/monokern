@@ -11,7 +11,6 @@
 #include <signal.h>
 #include <errno.h>
 #include <SDL.h>
-#include <SDL_image.h>
 
 #include "bits.h"
 #include "kern.h"

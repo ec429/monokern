@@ -20,7 +20,7 @@ $(PREFIX)/share/fonts/as.termkf: as.termkf
 	./fontify $@
 
 termk: termk.c kern.h kern.o bits.h bits.o kfa.h kfa.o pbm.h pbm.o
-	$(CC) $(CFLAGS) $(CPPFLAGS) $< $(LDFLAGS) kern.o bits.o kfa.o pbm.o -o $@ `sdl-config --cflags --libs` -lSDL_image
+	$(CC) $(CFLAGS) $(CPPFLAGS) $< $(LDFLAGS) kern.o bits.o kfa.o pbm.o -o $@ `sdl-config --cflags --libs`
 
 mk_scores: mk_scores.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< $(LDFLAGS) -o $@

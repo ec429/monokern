@@ -131,7 +131,13 @@ int main(int argc, char *argv[])
 		if(sscanf(kfb.ents[i].name.buf, "as_%hhu.pbm", &j)==1)
 		{
 			if((j>=31)&&(j<128))
-				letters[j-32]=pbm_string(kfb.ents[i].data);
+			{
+				if(!(letters[j-32]=pbm_string(kfb.ents[i].data)))
+				{
+					fprintf(stderr, "termk: bad as/%s\n", kfb.ents[i].name.buf);
+					return(EXIT_FAILURE);
+				}
+			}
 			else
 			{
 				fprintf(stderr, "termk: bad as/%s\n", kfb.ents[i].name.buf);
@@ -141,7 +147,13 @@ int main(int argc, char *argv[])
 		else if(sscanf(kfb.ents[i].name.buf, "ma_%hhu.pbm", &j)==1)
 		{
 			if((j>=96)&&(j<128))
-				metas[j-96]=pbm_string(kfb.ents[i].data);
+			{
+				if(!(metas[j-96]=pbm_string(kfb.ents[i].data)))
+				{
+					fprintf(stderr, "termk: bad ma/%s\n", kfb.ents[i].name.buf);
+					return(EXIT_FAILURE);
+				}
+			}
 			else
 			{
 				fprintf(stderr, "termk: bad ma/%s\n", kfb.ents[i].name.buf);
@@ -272,17 +284,10 @@ int main(int argc, char *argv[])
 				}
 				else
 				{
-					if(c==0x7f)
-					{
-						c=0;
-					}
-					else if((signed char)c<0)
-					{
-						c=0x7f;
-					}
+					unsigned long uc=0;
 					if(t.esc)
 					{
-						if((c==0x18)||(c==0x1a)) // CAN, SUB cancel escapes
+						if((c==0x18)||(c==0x1a)) // CAN, SUB cancel escapes (and, not entirely correctly, UTF8)
 						{
 							fprintf(stderr, "termk: cancelled ESC:");
 							for(unsigned int i=0;i<t.esc;i++)
@@ -295,115 +300,180 @@ int main(int argc, char *argv[])
 						else if(t.esc<256)
 						{
 							t.escd[t.esc++]=c;
-							if(t.esc==2)
+							if(t.escd[0]==0x1b)
 							{
-								switch(c)
+								if(t.esc==2)
 								{
-									case 'A': // cursor up
-										if(t.cur.y>(t.nlines-t.rows)) t.cur.y--;
-										t.esc=0;
-									break;
-									case 'B': // cursor down
-										cdown(&t);
-										t.esc=0;
-									break;
-									case 'C': // cursor right
-										cright(&t, false);
-										t.esc=0;
-									break;
-									case 'D': // cursor left
-										if(t.cur.x) t.cur.x--;
-										t.esc=0;
-									break;
-									case 'F': // set Graphics Mode
-										t.meta=true;
-										t.esc=0;
-									break;
-									case 'G': // reset Graphics Mode
-										t.meta=false;
-										t.esc=0;
-									break;
-									case 'H': // cursor to home position
-										t.cur.x=0;
-										t.cur.y=t.nlines-t.rows;
-										t.esc=0;
-									break;
-									case 'I': // reverse line feed
-										for(unsigned int i=t.nlines-1;i>0;i--)
-										{
-											memcpy(t.text[i], t.text[i-1], t.cols);
-											memcpy(t.dev[i], t.dev[i-1], t.cols);
-											t.dirty[i][0]=t.dirty[i-1][0];
-											t.dirty[i][1]=true;
-										}
-										t.dirty[0][0]=false;
-										t.dirty[0][1]=true;
-										memset(t.text[0], ' ', t.cols);
-										memset(t.dev[0], 0, t.cols);
-										t.esc=0;
-									break;
-									case 'J': // clear to end of screen
+									switch(c)
 									{
-										unsigned int y=t.cur.y,x=t.cur.x;
-										while(y<t.nlines)
+										case 'A': // cursor up
+											if(t.cur.y>(t.nlines-t.rows)) t.cur.y--;
+											t.esc=0;
+										break;
+										case 'B': // cursor down
+											cdown(&t);
+											t.esc=0;
+										break;
+										case 'C': // cursor right
+											cright(&t, false);
+											t.esc=0;
+										break;
+										case 'D': // cursor left
+											if(t.cur.x) t.cur.x--;
+											t.esc=0;
+										break;
+										case 'F': // set Graphics Mode
+											t.meta=true;
+											t.esc=0;
+										break;
+										case 'G': // reset Graphics Mode
+											t.meta=false;
+											t.esc=0;
+										break;
+										case 'H': // cursor to home position
+											t.cur.x=0;
+											t.cur.y=t.nlines-t.rows;
+											t.esc=0;
+										break;
+										case 'I': // reverse line feed
+											for(unsigned int i=t.nlines-1;i>0;i--)
+											{
+												memcpy(t.text[i], t.text[i-1], t.cols);
+												memcpy(t.dev[i], t.dev[i-1], t.cols);
+												t.dirty[i][0]=t.dirty[i-1][0];
+												t.dirty[i][1]=true;
+											}
+											t.dirty[0][0]=false;
+											t.dirty[0][1]=true;
+											memset(t.text[0], ' ', t.cols);
+											memset(t.dev[0], 0, t.cols);
+											t.esc=0;
+										break;
+										case 'J': // clear to end of screen
 										{
+											unsigned int y=t.cur.y,x=t.cur.x;
+											while(y<t.nlines)
+											{
+												while(x<t.cols)
+													t.text[y][x++]=' ';
+												x=0;
+												t.dirty[y++][0]=true;
+											}
+										}
+											t.esc=0;
+										break;
+										case 'K': // clear to end of line
+										{
+											unsigned int x=t.cur.x;
 											while(x<t.cols)
-												t.text[y][x++]=' ';
-											x=0;
-											t.dirty[y++][0]=true;
+												t.text[t.cur.y][x++]=' ';
+											t.dirty[t.cur.y][0]=true;
 										}
+											t.esc=0;
+										break;
+										case 'Y': // cursor move (takes 2 more bytes)
+											// nothing
+										break;
+										case 'Z': // Identify
+											do_write(ptmx, "\033/Z"); // "I'm a VT52"
+											t.esc=0;
+										break;
+										case '[':
+											// suck it up, it's not a vt52 sequence but the sending application doesn't know what it's doing
+										break;
+										default:
+											fprintf(stderr, "termk: unknown ESC:");
+											for(unsigned int i=0;i<t.esc;i++)
+												fprintf(stderr, " %02x", t.escd[i]);
+											fputc('\n', stderr);
+											t.esc=0;
+											c=0x7f; // replacement character
+											goto do_print;
+										break;
 									}
-										t.esc=0;
-									break;
-									case 'K': // clear to end of line
+								}
+								else
+								{
+									switch(t.escd[1])
 									{
-										unsigned int x=t.cur.x;
-										while(x<t.cols)
-											t.text[t.cur.y][x++]=' ';
-										t.dirty[t.cur.y][0]=true;
+										case 'Y': // cursor move (takes 2 more bytes)
+											if(t.esc==4)
+											{
+												// ESC Y Ps Ps, cursor move
+												t.cur.y=min(max(t.escd[2]-32, 0), t.rows-1)+t.nlines-t.rows;
+												t.cur.x=min(max(t.escd[3]-32, 0), t.cols-1);
+												t.esc=0;
+											}
+										break;
+										case '[': // broken non-vt52 sequence ^[[m sent by some errant programs
+											if(c=='m')
+												t.esc=0;
+										break;
 									}
-										t.esc=0;
-									break;
-									case 'Y': // cursor move (takes 2 more bytes)
-										// nothing
-									break;
-									case 'Z': // Identify
-										do_write(ptmx, "\033/Z"); // "I'm a VT52"
-										t.esc=0;
-									break;
-									case '[':
-										// suck it up, it's not a vt52 sequence but the sending application doesn't know what it's doing
-									break;
-									default:
-										fprintf(stderr, "termk: unknown ESC:");
-										for(unsigned int i=0;i<t.esc;i++)
-											fprintf(stderr, " %02x", t.escd[i]);
-										fputc('\n', stderr);
+								}
+							}
+							else // it's UTF8
+							{
+								if(t.esc>1)
+								{
+									if((c&0xC0)!=0x80)
+									{
 										t.esc=0;
 										c=0x7f; // replacement character
 										goto do_print;
-									break;
-								}
-							}
-							else
-							{
-								switch(t.escd[1])
-								{
-									case 'Y': // cursor move (takes 2 more bytes)
+									}
+									if((t.escd[0]&0xE0)==0xC0)
+									{
+										if(t.esc==2)
+										{
+											t.esc=0;
+											uc=((t.escd[0]&0x1F)<<6)|(t.escd[1]&0x3F);
+											goto do_print;
+										}
+									}
+									else if((t.escd[0]&0xF0)==0xE0)
+									{
+										if(t.esc==3)
+										{
+											t.esc=0;
+											uc=((t.escd[0]&0x0F)<<12)|((t.escd[1]&0x3F)<<6)|(t.escd[2]&0x3F);
+											goto do_print;
+										}
+									}
+									else if((t.escd[0]&0xF8)==0xF0)
+									{
 										if(t.esc==4)
 										{
-											// ESC Y Ps Ps, cursor move
-											t.cur.y=min(max(t.escd[2]-32, 0), t.rows-1)+t.nlines-t.rows;
-											t.cur.x=min(max(t.escd[3]-32, 0), t.cols-1);
 											t.esc=0;
+											uc=((t.escd[0]&0x07)<<18)|((t.escd[1]&0x3F)<<12)|((t.escd[2]&0x3F)<<6)|(t.escd[3]&0x3F);
+											goto do_print;
 										}
-									break;
-									case '[': // broken non-vt52 sequence ^[[m sent by some errant programs
-										if(c=='m')
-											t.esc=0;
-									break;
+									}
+									else
+									{
+										c=0x7f;
+										goto do_print;
+									}
 								}
 							}
+						}
+					}
+					else if((signed char)c<0)
+					{
+						if((c&0xC0)==0x80)
+						{
+							c=0x7f;
+							goto do_print;
+						}
+						else if(((c&0xE0)==0xC0)||((c&0xF0)==0xE0)||((c&0xF8)==0xF0))
+						{
+							t.esc=1;
+							t.escd[0]=c;
+						}
+						else
+						{
+							c=0x7f;
+							goto do_print;
 						}
 					}
 					else if(c<0x20)
@@ -445,9 +515,18 @@ int main(int argc, char *argv[])
 					else
 					{
 						do_print:
-						t.text[t.cur.y][t.cur.x]=t.meta?c|0x80:c;
-						t.dirty[t.cur.y][0]=true;
-						cright(&t, false);
+						if(uc)
+						{
+							t.text[t.cur.y][t.cur.x]=0x7f;
+							t.dirty[t.cur.y][0]=true;
+							cright(&t, false);
+						}
+						else
+						{
+							t.text[t.cur.y][t.cur.x]=t.meta?c|0x80:c;
+							t.dirty[t.cur.y][0]=true;
+							cright(&t, false);
+						}
 					}
 				}
 				do_update=true;

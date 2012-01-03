@@ -583,9 +583,9 @@ int main(int argc, char *argv[])
 						else if(key.sym==SDLK_LEFT)
 							do_write(ptmx, (mod&KMOD_CTRL)?"\033b":"\033D"); // M-b is a readline-ism
 						/* begin readline-isms */
-						else if(key.sym==SDLK_HOME)
+						else if((key.sym==SDLK_HOME)||((key.sym==SDLK_KP7)&&!(mod&KMOD_NUM)))
 							do_write(ptmx, "\001"); // C-a
-						else if(key.sym==SDLK_END)
+						else if((key.sym==SDLK_END)||((key.sym==SDLK_KP1)&&!(mod&KMOD_NUM)))
 							do_write(ptmx, "\005"); // C-e
 						else if(key.sym==SDLK_DELETE)
 							do_write(ptmx, "\004"); // C-d

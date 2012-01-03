@@ -13,6 +13,7 @@
 #include <SDL_image.h>
 
 #include "kern.h"
+#include "kfa.h"
 
 #define min(a,b)	((a)<(b)?(a):(b))
 #define max(a,b)	((a)>(b)?(a):(b))
@@ -24,12 +25,10 @@ void dpstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s, con
 void invert(SDL_Surface *scrn, SDL_Rect r);
 void filter(SDL_Surface *scrn, SDL_Rect r);
 
-void init_char(char **buf, int *l, int *i);
-void append_char(char **buf, int *l, int *i, char c);
-char * fgetl(FILE *fp);
 void do_write(int fd, const char *);
 
 SDL_Surface *letters[96];
+SDL_Surface *metas[32]; // from M-_ to M-~
 
 typedef struct
 {
@@ -48,6 +47,7 @@ typedef struct
 	bool (*dirty)[2]; // [0]=dev, [1]=screen
 	point cur;
 	point old;
+	bool meta;
 	unsigned int esc;
 	char escd[256]; // escape codes buffer
 }
@@ -102,6 +102,20 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "termk: ginit failed: %s\n", SDL_GetError());
 		return(EXIT_FAILURE);
 	}
+	FILE *kfa=fopen(PREFIX"/share/fonts/as.termkf", "r");
+	if(!kfa)
+	{
+		perror("termk: fopen");
+		return(EXIT_FAILURE);
+	}
+	kf_archive kfb;
+	if(kf_read(kfa, &kfb)<0)
+	{
+		fprintf(stderr, "termk: kf_read failed\n");
+		return(EXIT_FAILURE);
+	}
+	fclose(kfa);
+	
 	for(int i=0;i<96;i++)
 	{
 		char lfn[14];
@@ -111,6 +125,12 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "termk: IMG_Load failed: %s\n", IMG_GetError());
 			return(EXIT_FAILURE);
 		}
+	}
+	for(int i=0;i<32;i++)
+	{
+		char lfn[14];
+		sprintf(lfn, "as/ma_%hhu.pbm", i+95);
+		metas[i]=IMG_Load(lfn); // if it failed, we'll just do replacement later
 	}
 	FILE *kf=fopen("scores", "r");
 	KERN *k=kern_init(kf);
@@ -274,6 +294,14 @@ int main(int argc, char *argv[])
 										if(t.cur.x) t.cur.x--;
 										t.esc=0;
 									break;
+									case 'F': // set Graphics Mode
+										t.meta=true;
+										t.esc=0;
+									break;
+									case 'G': // reset Graphics Mode
+										t.meta=false;
+										t.esc=0;
+									break;
 									case 'H': // cursor to home position
 										t.cur.x=t.cur.y=0;
 										t.esc=0;
@@ -388,7 +416,7 @@ int main(int argc, char *argv[])
 					else
 					{
 						do_print:
-						t.text[t.cur.y][t.cur.x]=c;
+						t.text[t.cur.y][t.cur.x]=t.meta?c|0x80:c;
 						t.dirty[t.cur.y][0]=true;
 						cright(&t, false);
 					}
@@ -486,6 +514,7 @@ int initterm(terminal *t, unsigned int nlines, unsigned int rows, unsigned int c
 	t->cols=cols;
 	t->cur.x=0;
 	t->cur.y=nlines-rows;
+	t->meta=false;
 	t->esc=0;
 	t->text=malloc(nlines*sizeof(char *));
 	if(!t->text)
@@ -621,6 +650,13 @@ void pchar(SDL_Surface *scrn, unsigned int x, unsigned int y, char c)
 {
 	if((signed char)c>=32)
 		SDL_BlitSurface(letters[(unsigned char)c-32], NULL, scrn, &(SDL_Rect){x, y, 0, 0});
+	else if((signed char)c<0)
+	{
+		unsigned char d=c-223;
+		if(metas[d]) SDL_BlitSurface(metas[d], NULL, scrn, &(SDL_Rect){x, y, 0, 0});
+		else SDL_BlitSurface(letters[95], NULL, scrn, &(SDL_Rect){x, y, 0, 0});
+	}
+	else SDL_BlitSurface(letters[95], NULL, scrn, &(SDL_Rect){x, y, 0, 0});
 }
 
 void pstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s)
@@ -672,72 +708,6 @@ void filter(SDL_Surface *scrn, SDL_Rect r)
 			pixloc[1]=(pixloc[1]&0x80)?0xc0:0x20;
 			pixloc[2]=0;
 		}	
-}
-
-
-char * fgetl(FILE *fp)
-{
-	char * lout;
-	int l,i;
-	init_char(&lout, &l, &i);
-	signed int c;
-	while(!feof(fp))
-	{
-		c=fgetc(fp);
-		if((c==EOF)||(c=='\n'))
-			break;
-		if(c=='\t')
-		{
-			append_char(&lout, &l, &i, ' ');
-			while(i&3)
-				append_char(&lout, &l, &i, ' ');
-		}
-		else if(c!=0)
-		{
-			append_char(&lout, &l, &i, c);
-		}
-	}
-	return(lout);
-}
-
-void append_char(char **buf, int *l, int *i, char c)
-{
-	if(!((c==0)||(c==EOF)))
-	{
-		if(*buf)
-		{
-			(*buf)[(*i)++]=c;
-		}
-		else
-		{
-			init_char(buf, l, i);
-			append_char(buf, l, i, c);
-		}
-		char *nbuf=*buf;
-		if((*i)>=(*l))
-		{
-			*l=*i*2;
-			nbuf=(char *)realloc(*buf, *l);
-		}
-		if(nbuf)
-		{
-			*buf=nbuf;
-			(*buf)[*i]=0;
-		}
-		else
-		{
-			free(*buf);
-			init_char(buf, l, i);
-		}
-	}
-}
-
-void init_char(char **buf, int *l, int *i)
-{
-	*l=80;
-	*buf=(char *)malloc(*l);
-	(*buf)[0]=0;
-	*i=0;
 }
 
 void do_write(int fd, const char *s)

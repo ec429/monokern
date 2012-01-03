@@ -190,13 +190,14 @@ int kern(const char *str, signed char *dev, const KERN *k)
 	int score=0;
 	while(*str)
 	{
-		if((*str==' ')||(*str==0x7f))
+		if((*str==' ')||(*str==0x7f)||(*str<0))
 		{
 			*dev++=0;
 			str++;
 			continue;
 		}
-		size_t p=strcspn(str, " \177");
+		size_t p=0;
+		while(!((str[p]==' ')||(str[p]==0x7f)||(str[p]<=0))) p++;
 		int maxsc=INT_MIN, mi=0, mj=0;
 		for(int i=0;i<3;i++)
 		{

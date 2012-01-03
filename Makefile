@@ -1,11 +1,11 @@
 # Makefile for monokern
-CC := gcc
-CFLAGS := -Wall -Wextra -Werror -pedantic --std=gnu99 -g
 PREFIX := /usr/local
+CC := gcc
+CFLAGS := -Wall -Wextra -Werror -pedantic --std=gnu99 -g -DPREFIX=\"$(PREFIX)\"
 
-all: mk_kern mk_scores kernify kern.o termk
+all: mk_kern mk_scores kernify kern.o termk as.termkf
 
-install: $(PREFIX)/bin/termk $(PREFIX)/share/sounds/bell.wav
+install: $(PREFIX)/bin/termk $(PREFIX)/share/sounds/bell.wav $(PREFIX)/share/fonts/as.termkf
 
 $(PREFIX)/bin/termk: termk
 	install -D $< $@
@@ -13,11 +13,20 @@ $(PREFIX)/bin/termk: termk
 $(PREFIX)/share/sounds/bell.wav: bell.wav
 	install -D $< $@
 
-termk: termk.c kern.h kern.o
-	$(CC) $(CFLAGS) $(CPPFLAGS) $< $(LDFLAGS) kern.o -o $@ `sdl-config --cflags --libs` -lSDL_image
+$(PREFIX)/share/fonts/as.termkf: as.termkf
+	install -D -m644 $< $@
+
+%.termkf: fontify %/*
+	./fontify $@
+
+termk: termk.c kern.h kern.o bits.h bits.o kfa.h kfa.o
+	$(CC) $(CFLAGS) $(CPPFLAGS) $< $(LDFLAGS) kern.o bits.o kfa.o -o $@ `sdl-config --cflags --libs` -lSDL_image
 
 mk_scores: mk_scores.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< $(LDFLAGS) -o $@
+
+fontify: fontify.c bits.h bits.o kfa.h kfa.o
+	$(CC) $(CFLAGS) $(CPPFLAGS) $< $(LDFLAGS) bits.o kfa.o -o $@
 
 kernify: kernify.c kern.h kern.o
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< $(LDFLAGS) kern.o -o $@ `sdl-config --cflags --libs` -lSDL_image
@@ -27,3 +36,5 @@ kernify: kernify.c kern.h kern.o
 
 %.o: %.c %.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@ `sdl-config --libs`
+
+FORCE:

@@ -157,7 +157,7 @@ int ekern(size_t n, const char *str, signed char *dev, const KERN *k)
 		for(int i=0;i<3;i++)
 		{
 			dev[s]=i-1;
-			int sc=ekern(s+1, str, dev, k)+ekern(s+1, str+s, dev+s, k);
+			int sc=ekern(s+1, str, dev, k)+ekern(n-s, str+s, dev+s, k);
 			if(sc>maxsc)
 			{
 				maxsc=sc;

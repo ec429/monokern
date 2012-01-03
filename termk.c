@@ -460,10 +460,10 @@ int main(int argc, char *argv[])
 						t.dirty[j][0]=false;
 						t.dirty[j][1]=true;
 					}
-					if(t.dirty[j][1]||(i==t.cur.y)||(i==t.old.y))
+					if(t.dirty[j][1]||(j==t.cur.y)||(j==t.old.y))
 					{
 						SDL_FillRect(screen, &(SDL_Rect){0, 4+i*13, 500, 13}, SDL_MapRGB(screen->format, 0, 0, 0));
-						dpstr(screen, 4, 4+i*13, t.text[j], t.dev[j], i==t.cur.y, t.cur.x);
+						dpstr(screen, 4, 4+i*13, t.text[j], t.dev[j], j==t.cur.y, t.cur.x);
 						t.dirty[j][1]=false;
 					}
 				}

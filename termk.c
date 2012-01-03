@@ -949,13 +949,13 @@ void dpstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s, con
 		{
 			if(s[scx]==ligs[i].what[1])
 			{
-				if((!scx)||(ligs[i].what[0]=='*')||(s[scx-1]==ligs[i].what[0]))
+				if((ligs[i].what[0]=='*')||(scx&&(s[scx-1]==ligs[i].what[0])))
 				{
-					if((!s[scx+1])||(ligs[i].what[2]=='*')||(s[scx+1]==ligs[i].what[2]))
+					if((ligs[i].what[2]=='*')||(s[scx+1]&&(s[scx+1]==ligs[i].what[2])))
 					{
-						if((!scx)||(ligs[i].spa[0]=='*')||(dev[scx]-dev[scx-1]==ligs[i].spa[0]))
+						if((ligs[i].spa[0]=='*')||(scx&&(dev[scx]-dev[scx-1]==ligs[i].spa[0])))
 						{
-							if((!s[scx+1])||(ligs[i].spa[1]=='*')||(dev[scx+1]-dev[scx]==ligs[i].spa[1]))
+							if((ligs[i].spa[1]=='*')||(s[scx+1]&&(dev[scx+1]-dev[scx]==ligs[i].spa[1])))
 								break;
 						}
 					}

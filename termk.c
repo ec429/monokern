@@ -6,13 +6,17 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/select.h>
+#include <time.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <errno.h>
 #include <SDL.h>
 #include <SDL_image.h>
 
+#include "bits.h"
 #include "kern.h"
+#include "kfa.h"
+#include "pbm.h"
 
 #define min(a,b)	((a)<(b)?(a):(b))
 #define max(a,b)	((a)>(b)?(a):(b))
@@ -24,11 +28,10 @@ void dpstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s, con
 void invert(SDL_Surface *scrn, SDL_Rect r);
 void filter(SDL_Surface *scrn, SDL_Rect r);
 
-void init_char(char **buf, int *l, int *i);
-void append_char(char **buf, int *l, int *i, char c);
-char * fgetl(FILE *fp);
+void do_write(int fd, const char *);
 
 SDL_Surface *letters[96];
+SDL_Surface *metas[32]; // from M-_ to M-~
 
 typedef struct
 {
@@ -47,6 +50,7 @@ typedef struct
 	bool (*dirty)[2]; // [0]=dev, [1]=screen
 	point cur;
 	point old;
+	bool meta;
 	unsigned int esc;
 	char escd[256]; // escape codes buffer
 }
@@ -61,16 +65,37 @@ int main(int argc, char *argv[])
 {
 	const char *program="sh";
 	char *fake_arg=NULL, *const *argp=&fake_arg;
-	if(argc>1)
+	bool green=false;
+	for(int arg=1;arg<argc;arg++)
 	{
-		if((strcmp(argv[1], "--help")==0)||(strcmp(argv[1], "-h")==0))
+		if(argv[arg][0]=='-')
 		{
-			fprintf(stderr, "Usage: termk [<program> [--args <args> [...]]]\n");
+			if(strcmp(argv[arg], "--")==0)
+			{
+				program=argv[arg+1];
+				argp=argv+arg+1;
+				break;
+			}
+			else if((strcmp(argv[arg], "--help")==0)||(strcmp(argv[arg], "-h")==0))
+			{
+				fprintf(stderr, "Usage: termk [<opts>] [<program> [<args>]]\n");
+				fprintf(stderr, "Options:\n\t--\t\tEnd option list (for <program> beginning with '-')\n\t--green\t\tUse green display filter\n");
+				return(EXIT_SUCCESS);
+			}
+			else if(strcmp(argv[arg], "--green")==0)
+			{
+				green=true;
+			}
+			else
+			{
+				fprintf(stderr, "termk: unrecognised option, ignoring: %s\n", argv[arg]);
+			}
 		}
 		else
 		{
-			program=argv[1];
-			argp=argv+1;
+			program=argv[arg];
+			argp=argv+arg;
+			break;
 		}
 	}
 	
@@ -80,24 +105,59 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "termk: ginit failed: %s\n", SDL_GetError());
 		return(EXIT_FAILURE);
 	}
-	for(int i=0;i<96;i++)
+	KERN *k=NULL;
+	for(unsigned int i=0;i<96;i++)
+		letters[i]=NULL;
+	for(unsigned int i=0;i<32;i++)
+		metas[i]=NULL;
+	FILE *kfa=fopen(PREFIX"/share/fonts/as.termkf", "r");
+	if(!kfa)
 	{
-		char lfn[14];
-		sprintf(lfn, "as/as_%hhu.pbm", i+32);
-		if(!(letters[i]=IMG_Load(lfn)))
+		perror("termk: fopen: as.termkf");
+		return(EXIT_FAILURE);
+	}
+	kf_archive kfb;
+	if(kf_read(kfa, &kfb)<0)
+	{
+		fprintf(stderr, "termk: kf_read failed\n");
+		return(EXIT_FAILURE);
+	}
+	fclose(kfa);
+	for(unsigned int i=0;i<kfb.nents;i++)
+	{
+		unsigned char j;
+		if(sscanf(kfb.ents[i].name.buf, "as_%hhu.pbm", &j)==1)
 		{
-			fprintf(stderr, "termk: IMG_Load failed: %s\n", IMG_GetError());
-			return(EXIT_FAILURE);
+			if((j>=31)&&(j<128))
+				letters[j-32]=pbm_string(kfb.ents[i].data);
+			else
+			{
+				fprintf(stderr, "termk: bad as/%s\n", kfb.ents[i].name.buf);
+				return(EXIT_FAILURE);
+			}
+		}
+		else if(sscanf(kfb.ents[i].name.buf, "ma_%hhu.pbm", &j)==1)
+		{
+			if((j>=96)&&(j<128))
+				metas[j-96]=pbm_string(kfb.ents[i].data);
+			else
+			{
+				fprintf(stderr, "termk: bad ma/%s\n", kfb.ents[i].name.buf);
+				return(EXIT_FAILURE);
+			}
+		}
+		else if(strcmp(kfb.ents[i].name.buf, "scores")==0)
+		{
+			k=kern_init_s(kfb.ents[i].data);
 		}
 	}
-	FILE *kf=fopen("scores", "r");
-	KERN *k=kern_init(kf);
+	kf_free(kfb);
+	
 	if(!k)
 	{
 		fprintf(stderr, "termk: kern_init failed\n");
 		return(EXIT_FAILURE);
 	}
-	fclose(kf);
 	
 	terminal t;
 	if(initterm(&t, 256, 24, 80)) return(EXIT_FAILURE);
@@ -177,11 +237,14 @@ int main(int argc, char *argv[])
 	SDL_EnableUNICODE(1);
 	SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL);
 	SDL_Event event;
+	bool do_update=true;
+	time_t belt=0;
 	int errupt=0;
 	while(!errupt)
 	{
 		readfds=master;
-		tv.tv_sec=tv.tv_usec=0;
+		tv.tv_sec=0;
+		tv.tv_usec=do_update?0:25000;
 		if(select(fdmax+1, &readfds, NULL, NULL, &tv)==-1)
 		{
 			if(errno!=EINTR) // nobody cares if select() was interrupted by a signal
@@ -234,23 +297,31 @@ int main(int argc, char *argv[])
 							{
 								switch(c)
 								{
-									case 'A':
+									case 'A': // cursor up
 										if(t.cur.y) t.cur.y--;
 										t.esc=0;
 									break;
-									case 'B':
+									case 'B': // cursor down
 										cdown(&t);
 										t.esc=0;
 									break;
-									case 'C':
+									case 'C': // cursor right
 										cright(&t, false);
 										t.esc=0;
 									break;
-									case 'D':
+									case 'D': // cursor left
 										if(t.cur.x) t.cur.x--;
 										t.esc=0;
 									break;
-									case 'H':
+									case 'F': // set Graphics Mode
+										t.meta=true;
+										t.esc=0;
+									break;
+									case 'G': // reset Graphics Mode
+										t.meta=false;
+										t.esc=0;
+									break;
+									case 'H': // cursor to home position
 										t.cur.x=t.cur.y=0;
 										t.esc=0;
 									break;
@@ -258,6 +329,8 @@ int main(int argc, char *argv[])
 										for(unsigned int i=t.nlines-1;i>0;i--)
 										{
 											memcpy(t.text[i], t.text[i-1], t.cols);
+											memcpy(t.dev[i], t.dev[i-1], t.cols);
+											t.dirty[i][0]=t.dirty[i-1][0];
 											t.dirty[i][1]=true;
 										}
 										t.dirty[0][0]=false;
@@ -266,7 +339,7 @@ int main(int argc, char *argv[])
 										memset(t.dev[0], 0, t.cols);
 										t.esc=0;
 									break;
-									case 'J':
+									case 'J': // clear to end of screen
 									{
 										unsigned int y=t.cur.y,x=t.cur.x;
 										while(y<t.rows)
@@ -279,7 +352,7 @@ int main(int argc, char *argv[])
 									}
 										t.esc=0;
 									break;
-									case 'K':
+									case 'K': // clear to end of line
 									{
 										unsigned int x=t.cur.x;
 										while(x<t.cols)
@@ -290,6 +363,10 @@ int main(int argc, char *argv[])
 									break;
 									case 'Y': // cursor move (takes 2 more bytes)
 										// nothing
+									break;
+									case 'Z': // Identify
+										do_write(ptmx, "\033/Z"); // "I'm a VT52"
+										t.esc=0;
 									break;
 									case '[':
 										// suck it up, it's not a vt52 sequence but the sending application doesn't know what it's doing
@@ -331,7 +408,14 @@ int main(int argc, char *argv[])
 						switch(c)
 						{
 							case 7: // BEL
-								//bell()
+							{
+								time_t t=time(NULL);
+								if(belt<t)
+								{
+									system("aplay "PREFIX"/share/sounds/bell.wav 2>/dev/null &"); // TODO find a better way of doing this
+									belt=t;
+								}
+							}
 							break;
 							case 8: // BS
 								if(t.cur.x) t.cur.x--;
@@ -358,11 +442,12 @@ int main(int argc, char *argv[])
 					else
 					{
 						do_print:
-						t.text[t.cur.y][t.cur.x]=c;
+						t.text[t.cur.y][t.cur.x]=t.meta?c|0x80:c;
 						t.dirty[t.cur.y][0]=true;
 						cright(&t, false);
 					}
 				}
+				do_update=true;
 			}
 			else
 			{
@@ -382,18 +467,15 @@ int main(int argc, char *argv[])
 						t.dirty[j][1]=false;
 					}
 				}
-				filter(screen, (SDL_Rect){0, 0, screen->w, screen->h});
+				if(green) filter(screen, (SDL_Rect){0, 0, screen->w, screen->h});
 				SDL_Flip(screen);
 				t.old=t.cur;
-			}
-			for(int fd=0;fd<=fdmax;fd++)
-			{
-				if(FD_ISSET(fd, &readfds))
-					FD_CLR(fd, &readfds);
+				do_update=false;
 			}
 		}
 		if(SDL_PollEvent(&event))
 		{
+			do_update=true;
 			switch(event.type)
 			{
 				case SDL_QUIT:
@@ -404,30 +486,23 @@ int main(int argc, char *argv[])
 					if(event.key.type==SDL_KEYDOWN)
 					{
 						SDL_keysym key=event.key.keysym;
+						SDLMod mod=SDL_GetModState();
 						if(key.sym==SDLK_UP)
-						{
-							ssize_t b=write(ptmx, "\033A", 2);
-							if(b<2)
-								perror("write");
-						}
+							do_write(ptmx, "\033A");
 						else if(key.sym==SDLK_DOWN)
-						{
-							ssize_t b=write(ptmx, "\033B", 2);
-							if(b<2)
-								perror("write");
-						}
+							do_write(ptmx, "\033B");
 						else if(key.sym==SDLK_RIGHT)
-						{
-							ssize_t b=write(ptmx, "\033C", 2);
-							if(b<2)
-								perror("write");
-						}
+							do_write(ptmx, (mod&KMOD_CTRL)?"\033f":"\033C"); // M-f is a readline-ism
 						else if(key.sym==SDLK_LEFT)
-						{
-							ssize_t b=write(ptmx, "\033D", 2);
-							if(b<2)
-								perror("write");
-						}
+							do_write(ptmx, (mod&KMOD_CTRL)?"\033b":"\033D"); // M-b is a readline-ism
+						/* begin readline-isms */
+						else if(key.sym==SDLK_HOME)
+							do_write(ptmx, "\001"); // C-a
+						else if(key.sym==SDLK_END)
+							do_write(ptmx, "\005"); // C-e
+						else if(key.sym==SDLK_DELETE)
+							do_write(ptmx, "\004"); // C-d
+						/* end readline-isms */
 						else if((key.unicode&0xFF80)==0)
 						{
 							char k=key.unicode&0x7F;
@@ -466,6 +541,7 @@ int initterm(terminal *t, unsigned int nlines, unsigned int rows, unsigned int c
 	t->cols=cols;
 	t->cur.x=0;
 	t->cur.y=nlines-rows;
+	t->meta=false;
 	t->esc=0;
 	t->text=malloc(nlines*sizeof(char *));
 	if(!t->text)
@@ -492,7 +568,7 @@ int initterm(terminal *t, unsigned int nlines, unsigned int rows, unsigned int c
 	{
 		t->dirty[i][0]=false;
 		t->dirty[i][1]=true;
-		t->text[i]=malloc(cols);
+		t->text[i]=malloc(cols+1);
 		if(!t->text[i])
 		{
 			perror("initterm: malloc");
@@ -503,7 +579,7 @@ int initterm(terminal *t, unsigned int nlines, unsigned int rows, unsigned int c
 			free(t->dirty);
 			return(2);
 		}
-		t->dev[i]=malloc(cols);
+		t->dev[i]=malloc(cols+1);
 		if(!t->dev[i])
 		{
 			perror("initterm: malloc");
@@ -523,6 +599,7 @@ int initterm(terminal *t, unsigned int nlines, unsigned int rows, unsigned int c
 			t->text[i][j]=' ';
 			t->dev[i][j]=0;
 		}
+		t->text[i][cols]=0;
 	}
 	return(0);
 }
@@ -600,6 +677,13 @@ void pchar(SDL_Surface *scrn, unsigned int x, unsigned int y, char c)
 {
 	if((signed char)c>=32)
 		SDL_BlitSurface(letters[(unsigned char)c-32], NULL, scrn, &(SDL_Rect){x, y, 0, 0});
+	else if((signed char)c<0)
+	{
+		unsigned char d=c-223;
+		if(metas[d]) SDL_BlitSurface(metas[d], NULL, scrn, &(SDL_Rect){x, y, 0, 0});
+		else SDL_BlitSurface(letters[95], NULL, scrn, &(SDL_Rect){x, y, 0, 0});
+	}
+	else SDL_BlitSurface(letters[95], NULL, scrn, &(SDL_Rect){x, y, 0, 0});
 }
 
 void pstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s)
@@ -653,68 +737,10 @@ void filter(SDL_Surface *scrn, SDL_Rect r)
 		}	
 }
 
-
-char * fgetl(FILE *fp)
+void do_write(int fd, const char *s)
 {
-	char * lout;
-	int l,i;
-	init_char(&lout, &l, &i);
-	signed int c;
-	while(!feof(fp))
-	{
-		c=fgetc(fp);
-		if((c==EOF)||(c=='\n'))
-			break;
-		if(c=='\t')
-		{
-			append_char(&lout, &l, &i, ' ');
-			while(i&3)
-				append_char(&lout, &l, &i, ' ');
-		}
-		else if(c!=0)
-		{
-			append_char(&lout, &l, &i, c);
-		}
-	}
-	return(lout);
-}
-
-void append_char(char **buf, int *l, int *i, char c)
-{
-	if(!((c==0)||(c==EOF)))
-	{
-		if(*buf)
-		{
-			(*buf)[(*i)++]=c;
-		}
-		else
-		{
-			init_char(buf, l, i);
-			append_char(buf, l, i, c);
-		}
-		char *nbuf=*buf;
-		if((*i)>=(*l))
-		{
-			*l=*i*2;
-			nbuf=(char *)realloc(*buf, *l);
-		}
-		if(nbuf)
-		{
-			*buf=nbuf;
-			(*buf)[*i]=0;
-		}
-		else
-		{
-			free(*buf);
-			init_char(buf, l, i);
-		}
-	}
-}
-
-void init_char(char **buf, int *l, int *i)
-{
-	*l=80;
-	*buf=(char *)malloc(*l);
-	(*buf)[0]=0;
-	*i=0;
+	ssize_t l=strlen(s);
+	ssize_t b=write(fd, s, l);
+	if(b<l)
+		perror("write");
 }

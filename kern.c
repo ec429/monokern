@@ -12,31 +12,40 @@ struct _kern
 int rate(size_t n, const char *str, const signed char *dev, const KERN *k);
 int ekern(size_t n, const char *str, signed char *dev, const KERN *k);
 
-void kern_init_char(char **buf, int *l, int *i);
-void kern_append_char(char **buf, int *l, int *i, char c);
-char * kern_fgetl(FILE *fp);
-
 KERN *kern_init(FILE *fp)
 {
+	string s=sslurp(fp);
+	return(kern_init_s(s));
+}
+
+KERN *kern_init_s(string s)
+{
 	KERN *rv=malloc(sizeof(KERN));
-	for(int i=0;i<96;i++)
-		for(int j=0;j<96;j++)
+	for(unsigned int i=0;i<96;i++)
+		for(unsigned int j=0;j<96;j++)
 			rv->score[i][j][0]=(rv->score[i][j][1]=rv->score[i][j][2]=0)-15;
-	if(!fp) return(rv);
-	while(!feof(fp))
+	if(!s.buf) return(rv);
+	unsigned int i=0;
+	while(i<s.i)
 	{
-		char *p=kern_fgetl(fp);
-		if(*p)
+		char *p=s.buf+i;
+		unsigned int l=strcspn(p, "\n");
+		unsigned char c=p[l];
+		p[l]=0;
+		int a=p[0];
+		int b=p[1];
+		a-=32;
+		b-=32;
+		if((a<0)||(a>94)) break;
+		if((b<0)||(b>94)) break;
+		if(p[2]!=' ') break;
+		if(sscanf(p+3, "%d %d %d", rv->score[a][b], rv->score[a][b]+1, rv->score[a][b]+2)!=3)
 		{
-			int a=p[0];
-			int b=p[1];
-			a-=32;
-			b-=32;
-			if((a<0)||(a>94)) break;
-			if((b<0)||(b>94)) break;
-			if(p[2]!=' ') break;
-			if(sscanf(p+3, "%d %d %d", rv->score[a][b], rv->score[a][b]+1, rv->score[a][b]+2)!=3) break;
+			free(rv);
+			return(NULL);
 		}
+		p[l]=c;
+		i+=l+1;
 	}
 	return(rv);
 }
@@ -190,13 +199,14 @@ int kern(const char *str, signed char *dev, const KERN *k)
 	int score=0;
 	while(*str)
 	{
-		if((*str==' ')||(*str==0x7f))
+		if((*str==' ')||(*str==0x7f)||(*str<0))
 		{
 			*dev++=0;
 			str++;
 			continue;
 		}
-		size_t p=strcspn(str, " \177");
+		size_t p=0;
+		while(!((str[p]==' ')||(str[p]==0x7f)||(str[p]<=0))) p++;
 		int maxsc=INT_MIN, mi=0, mj=0;
 		for(int i=0;i<3;i++)
 		{
@@ -220,63 +230,4 @@ int kern(const char *str, signed char *dev, const KERN *k)
 		dev+=p;
 	}
 	return(score);
-}
-
-char * kern_fgetl(FILE *fp)
-{
-	char * lout;
-	int l,i;
-	kern_init_char(&lout, &l, &i);
-	signed int c;
-	while(!feof(fp))
-	{
-		c=fgetc(fp);
-		if((c==EOF)||(c=='\n'))
-			break;
-		if(c!=0)
-		{
-			kern_append_char(&lout, &l, &i, c);
-		}
-	}
-	return(lout);
-}
-
-void kern_append_char(char **buf, int *l, int *i, char c)
-{
-	if(!((c==0)||(c==EOF)))
-	{
-		if(*buf)
-		{
-			(*buf)[(*i)++]=c;
-		}
-		else
-		{
-			kern_init_char(buf, l, i);
-			kern_append_char(buf, l, i, c);
-		}
-		char *nbuf=*buf;
-		if((*i)>=(*l))
-		{
-			*l=*i*2;
-			nbuf=(char *)realloc(*buf, *l);
-		}
-		if(nbuf)
-		{
-			*buf=nbuf;
-			(*buf)[*i]=0;
-		}
-		else
-		{
-			free(*buf);
-			kern_init_char(buf, l, i);
-		}
-	}
-}
-
-void kern_init_char(char **buf, int *l, int *i)
-{
-	*l=80;
-	*buf=(char *)malloc(*l);
-	(*buf)[0]=0;
-	*i=0;
 }

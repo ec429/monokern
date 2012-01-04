@@ -3,7 +3,7 @@ PREFIX := /usr/local
 CC := gcc
 CFLAGS := -Wall -Wextra -Werror -pedantic --std=gnu99 -g -DPREFIX=\"$(PREFIX)\"
 
-all: mk_kern mk_scores kernify kern.o termk as.termkf
+all: mk_kern mk_scores kern.o termk as.termkf
 
 install: $(PREFIX)/bin/termk $(PREFIX)/share/sounds/bell.wav $(PREFIX)/share/fonts/as.termkf
 
@@ -27,9 +27,6 @@ mk_scores: mk_scores.c
 
 fontify: fontify.c bits.h bits.o kfa.h kfa.o
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< $(LDFLAGS) bits.o kfa.o -o $@
-
-kernify: kernify.c bits.h bits.o kern.h kern.o
-	$(CC) $(CFLAGS) $(CPPFLAGS) $< $(LDFLAGS) bits.o kern.o -o $@ `sdl-config --cflags --libs` -lSDL_image
 
 %: %.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< $(LDFLAGS) -o $@ `sdl-config --cflags --libs` -lSDL_image

@@ -68,7 +68,7 @@ int ratepair(const char pair[2], const signed char dev[2], const KERN *k)
 	if(!(a&&b))
 		return(0);
 	if(spa<-1)
-		return(k->score[(unsigned char)a][(unsigned char)b][0]-30);
+		return((k->score[(unsigned char)a][(unsigned char)b][0]-30)*w);
 	if(spa>1)
 		return((k->score[(unsigned char)a][(unsigned char)b][1]-30)*w);
 	/*if(i)

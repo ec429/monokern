@@ -709,6 +709,13 @@ int main(int argc, char *argv[])
 					if(t.dirty[j][0])
 					{
 						kern(t.text[j], t.dev[j], k);
+						#if 0 // for debugging
+						for(unsigned int i=0;i<t.cols;i++)
+						{
+							fprintf(stderr, "%c", "- +"[t.dev[j][i]+1]);
+						}
+						fprintf(stderr, "\n");
+						#endif
 						t.dirty[j][0]=false;
 						t.dirty[j][1]=true;
 					}

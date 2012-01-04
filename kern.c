@@ -86,10 +86,10 @@ int kern(const char *str, signed char *dev, const KERN *k)
 {
 	if(!(str&&dev&&k)) return(-1);
 	unsigned int n=strlen(str);
-	signed char rdev[n][3];
+	unsigned char rdev[n][3];
 	for(unsigned int r=0;r<3;r++)
 		rdev[0][r]=r;
-	signed char nrdev[n][3];
+	unsigned char nrdev[n][3];
 	int rscore[3]={0,0,0};
 	int nrscore[3];
 	unsigned int nrms[3];
@@ -102,8 +102,13 @@ int kern(const char *str, signed char *dev, const KERN *k)
 			for(unsigned int r=0;r<3;r++)
 			{
 				int score=ratepair((char[2]){str[i-1], str[i]}, (signed char[2]){l, r}, k);
+				if((i>1)&&isalpha(str[i-2])) // force balance - note that this breaks the guarantee of optimality
+				{
+					if((l<r)&&(rdev[i-2][l]>l)) score-=30;
+					else if((l>r)&&(rdev[i-2][l]<l)) score-=30;
+				}
 				score+=rscore[l];
-				if(score>nrscore[r])
+				if((score>nrscore[r])||((score==nrscore[r])&&(l==1)))
 				{
 					nrscore[r]=score;
 					nrms[r]=l;
@@ -123,13 +128,13 @@ int kern(const char *str, signed char *dev, const KERN *k)
 			rscore[r]=nrscore[r];
 		}
 	}
-	int mr=0;
-	for(unsigned int r=1;r<3;r++)
+	int mr=1;
+	for(unsigned int r=0;r<3;r++)
 	{
 		if(rscore[r]>rscore[mr])
 			mr=r;
 	}
 	for(unsigned int j=0;j<=n;j++)
-		dev[j]=rdev[j][mr];
+		dev[j]=rdev[j][mr]-1;
 	return(0);
 }

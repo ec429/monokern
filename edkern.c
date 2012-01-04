@@ -34,11 +34,13 @@ void pstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s);
 
 int main(int argc, char *argv[])
 {
-	unsigned char i=0;
+	unsigned char i=0, last=1;
 	for(int arg=1;arg<argc;arg++)
 	{
 		if(strlen(argv[arg])==1)
 			i=argv[arg][0]-32;
+		else if(argv[arg][0]=='-')
+			last=argv[arg][1]-32;
 		else
 			fprintf(stderr, "Bad arg: %s\n", argv[arg]);
 	}
@@ -76,7 +78,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "edkern: ginit failed: %s\n", SDL_GetError());
 		return(EXIT_FAILURE);
 	}
-	for(unsigned char j=1;j<96;j++)
+	for(unsigned char j=last;j<96;j++)
 	{
 		repeat:
 		SDL_FillRect(screen, &(SDL_Rect){0, 0, 320, 240}, SDL_MapRGB(screen->format, 0, 0, 0));

@@ -9,8 +9,7 @@ struct _kern
 	int score[96][96][3];
 };
 
-int rate(size_t n, const char *str, const signed char *dev, const KERN *k);
-int ekern(size_t n, const char *str, signed char *dev, const KERN *k);
+int ratepair(const char pair[2], const signed char dev[2], const KERN *k);
 
 KERN *kern_init(FILE *fp)
 {
@@ -50,167 +49,87 @@ KERN *kern_init_s(string s)
 	return(rv);
 }
 
-int rate(size_t n, const char *str, const signed char *dev, const KERN *k)
+int ratepair(const char pair[2], const signed char dev[2], const KERN *k)
 {
-	int rv=0;
-	size_t i=0;
-	while(i<n-1)
-	{
-		int spa=dev[i+1]-dev[i];
-		int a=str[i],b=str[++i];
-		int w=4;
-		if(isalpha(a)) w+=2;
-		if(isalpha(b)) w+=2;
-		if(a=='_') w=(w|1)/2;
-		if(b=='_') w=(w|1)/2;
-		a-=32;
-		b-=32;
-		if((a<0)||(a>94)||(b<0)||(b>94))
-		{
-			rv-=spa?30:0;
-			continue;
-		}
-		if(!(a&&b))
-		{
-			continue;
-		}
-		if(spa<-1)
-		{
-			rv+=(k->score[a][b][0]-30);
-			continue;
-		}
-		if(spa>1)
-		{
-			rv+=(k->score[a][b][2]-30)*w;
-			continue;
-		}
-		if(i)
-		{
-			int c=str[i-2];
-			c-=32;
-			if((c>=0)&&(c<96))
-			{
-				int osp=dev[i-1]-dev[i-2];
-				if((k->score[a][b][0]>0)&&(k->score[c][a][0]>0))
-					if(abs(osp-spa)>1) rv-=30*w;
-			}
-		}
-		rv+=k->score[a][b][spa+1]*w;
-	}
-	return(rv);
-}
-
-int ekern(size_t n, const char *str, signed char *dev, const KERN *k)
-{
-	if(n<3)
-	{
-		return(rate(n, str, dev, k));
-	}
-	else if(n==3)
-	{
-		int maxsc=INT_MIN, mx=0;
-		for(int i=0;i<3;i++)
-		{
-			dev[1]=i-1;
-			int sc=rate(3, str, dev, k);
-			if(sc>maxsc)
-			{
-				maxsc=sc;
-				mx=i;
-			}
-		}
-		dev[1]=mx-1;
-		return(maxsc);
-	}
-	else if(n==4)
-	{
-		int maxsc=INT_MIN, mi=0, mj=0;
-		for(int i=0;i<3;i++)
-		{
-			dev[1]=i-1;
-			for(int j=0;j<3;j++)
-			{
-				dev[2]=j-1;
-				int sc=rate(4, str, dev, k);
-				if(sc>maxsc)
-				{
-					maxsc=sc;
-					mi=i;
-					mj=j;
-				}
-			}
-		}
-		dev[1]=mi-1;
-		dev[2]=mj-1;
-		return(maxsc);
-	}
-	else if(n>40)
-	{
-		for(unsigned int i=0;i<n;i++)
-			dev[i]=0;
+	int spa=dev[1]-dev[0];
+	char a=pair[0], b=pair[1];
+	int w=4;
+	if(isalpha(a)) w+=2;
+	if(isalpha(b)) w+=2;
+	if(a=='_') w=(w|1)/2;
+	if(b=='_') w=(w|1)/2;
+	a-=32;
+	b-=32;
+	if((a<0)||(a>94)||(b<0)||(b>94))
+		return(spa?-30:0);
+	if(!(a&&b))
 		return(0);
-	}
-	else
+	if(spa<-1)
+		return(k->score[(unsigned char)a][(unsigned char)b][0]-30);
+	if(spa>1)
+		return((k->score[(unsigned char)a][(unsigned char)b][2]-30)*w);
+	/*if(i)
 	{
-		int s=n>>1;
-		int maxsc=INT_MIN, mx=0;
-		for(int i=0;i<3;i++)
+		int c=str[i-2];
+		c-=32;
+		if((c>=0)&&(c<96))
 		{
-			dev[s]=i-1;
-			int sc=ekern(s+1, str, dev, k)+ekern(n-s, str+s, dev+s, k);
-			if(sc>maxsc)
-			{
-				maxsc=sc;
-				mx=i;
-			}
+			int osp=dev[i-1]-dev[i-2];
+			if((k->score[a][b][0]>0)&&(k->score[c][a][0]>0))
+				if(abs(osp-spa)>1) rv-=30*w;
 		}
-		dev[s]=mx-1;
-		return(ekern(s+1, str, dev, k)+ekern(s+1, str+s, dev+s, k));
-	}
+	}*/
+	return(k->score[(unsigned char)a][(unsigned char)b][spa+1]*w);
 }
 
 int kern(const char *str, signed char *dev, const KERN *k)
 {
-	if(!(str&&dev&&k)) return(0);
-	int score=0;
-	while(*str)
+	if(!(str&&dev&&k)) return(-1);
+	unsigned int n=strlen(str);
+	signed char rdev[n][3];
+	for(unsigned int r=0;r<3;r++)
+		rdev[0][r]=r;
+	signed char nrdev[n][3];
+	int rscore[3]={0,0,0};
+	int nrscore[3];
+	unsigned int nrms[3];
+	for(unsigned int i=1;i<n;i++)
 	{
-		if((*str==' ')||(*str==0x7f)||(*str<0))
+		nrscore[0]=nrscore[1]=nrscore[2]=INT_MIN;
+		nrms[0]=nrms[1]=nrms[2]=1;
+		for(unsigned int l=0;l<3;l++)
 		{
-			*dev++=0;
-			str++;
-			continue;
-		}
-		size_t p=0;
-		while(!((str[p]==' ')||(str[p]==0x7f)||(str[p]<=0))) p++;
-		if(p==1)
-		{
-			dev[0]=0;
-		}
-		else
-		{
-			int maxsc=INT_MIN, mi=0, mj=0;
-			for(int i=0;i<3;i++)
+			for(unsigned int r=0;r<3;r++)
 			{
-				dev[0]=i-1;
-				for(int j=0;j<3;j++)
+				int score=ratepair((char[2]){str[i-1], str[i]}, (signed char[2]){l, r}, k);
+				score+=rscore[l];
+				if(score>nrscore[r])
 				{
-					dev[p-1]=j-1;
-					int sc=ekern(p, str, dev, k);
-					if(sc>maxsc)
-					{
-						maxsc=sc;
-						mi=i;
-						mj=j;
-					}
+					nrscore[r]=score;
+					nrms[r]=l;
 				}
 			}
-			dev[0]=mi-1;
-			dev[p-1]=mj-1;
 		}
-		score+=ekern(p, str, dev, k);
-		str+=p;
-		dev+=p;
+		for(unsigned int r=0;r<3;r++)
+		{
+			for(unsigned int j=0;j<i;j++)
+				nrdev[j][r]=rdev[j][nrms[r]];
+			nrdev[i][r]=r;
+		}
+		for(unsigned int r=0;r<3;r++)
+		{
+			for(unsigned int j=0;j<=i;j++)
+				rdev[j][r]=nrdev[j][r];
+			rscore[r]=nrscore[r];
+		}
 	}
-	return(score);
+	int mr=0;
+	for(unsigned int r=1;r<3;r++)
+	{
+		if(rscore[r]>rscore[mr])
+			mr=r;
+	}
+	for(unsigned int j=0;j<=n;j++)
+		dev[j]=rdev[j][mr];
+	return(0);
 }

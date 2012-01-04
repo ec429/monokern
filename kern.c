@@ -14,7 +14,9 @@ int ratepair(const char pair[2], const signed char dev[2], const KERN *k);
 KERN *kern_init(FILE *fp)
 {
 	string s=sslurp(fp);
-	return(kern_init_s(s));
+	KERN *k=kern_init_s(s);
+	free_string(s);
+	return(k);
 }
 
 KERN *kern_init_s(string s)

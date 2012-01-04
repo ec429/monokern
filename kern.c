@@ -36,7 +36,7 @@ KERN *kern_init_s(string s)
 		if((a<0)||(a>95)) break;
 		if((b<0)||(b>95)) break;
 		if(p[2]!=' ') break;
-		if(sscanf(p+3, "%d %d", rv->score[a][b], rv->score[a][b]+1)!=2)
+		if(sscanf(p+3, "%hhd %hhd", rv->score[a][b], rv->score[a][b]+1)!=2)
 		{
 			free(rv);
 			return(NULL);

@@ -133,6 +133,8 @@ int main(int argc, char *argv[])
 								goto repeat;
 							else if(key.sym==SDLK_SPACE)
 								errupt=1;
+							else if(key.sym==SDLK_RETURN)
+								errupt=1;
 							else if(key.sym==SDLK_a)
 							{
 								if(k->score[i][j][0]==-30) k->score[i][j][0]=0;

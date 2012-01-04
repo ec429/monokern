@@ -82,6 +82,8 @@ int main(int argc, char *argv[])
 	{
 		repeat:
 		SDL_FillRect(screen, &(SDL_Rect){0, 0, 320, 240}, SDL_MapRGB(screen->format, 0, 0, 0));
+		SDL_FillRect(screen, &(SDL_Rect){221, 10, 99, 9}, SDL_MapRGB(screen->format, 31, 31, 31));
+		pchar(screen, 220+j, 8, '>');
 		pchar(screen, 8, 8, i+32);
 		pchar(screen, 211, 8, j+32);
 		for(int y=0;y<12;y++)

@@ -189,8 +189,6 @@ int kern(const char *str, signed char *dev, const KERN *k)
 			dev[0]=i-1;
 			for(int j=0;j<3;j++)
 			{
-				if(!i&&!j) continue;
-				if(i+j>2) continue;
 				dev[p-1]=j-1;
 				int sc=ekern(p, str, dev, k);
 				if(sc>maxsc)

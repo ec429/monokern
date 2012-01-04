@@ -994,7 +994,7 @@ void dpstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s, con
 		if(i==nligs)
 			pchar(scrn, x+dev[scx], y, s[scx]);
 		else
-			SDL_BlitSurface(ligs[i].data, NULL, scrn, &(SDL_Rect){x+dev[scx], y, 0, 0});
+			SDL_BlitSurface(ligs[i].data, NULL, scrn, &(SDL_Rect){x+dev[scx]+2-(ligs[i].data->w>>1), y, 0, 0});
 		if(iscy&&(scx==cx))
 			invert(scrn, (SDL_Rect){x+dev[scx], y, 5, 12});
 		x+=6;

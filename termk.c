@@ -215,7 +215,7 @@ int main(int argc, char *argv[])
 		}
 		else if(strcmp(kfb.ents[i].name.buf, "ligatures")==0)
 		{
-			ligatures=kfb.ents[i].data;
+			ligatures=dup_string(kfb.ents[i].data);
 		}
 		else if(strcmp(kfb.ents[i].name.buf, "scores")==0)
 		{
@@ -321,6 +321,7 @@ int main(int argc, char *argv[])
 			if(i<ligatures.i) i++;
 		}
 	}
+	free_string(&ligatures);
 	
 	for(unsigned int i=0;i<nlids;i++)
 	{

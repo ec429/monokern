@@ -112,9 +112,19 @@ string make_string(const char *str)
 	return(s);
 }
 
+string dup_string(const string s)
+{
+	string rv={.buf=malloc(s.i+1), s.i+1, s.i};
+	if(!rv.buf) return(null_string());
+	memcpy(rv.buf, s.buf, s.i+1);
+	return(rv);
+}
+
 void free_string(string *s)
 {
 	free(s->buf);
+	s->buf=NULL;
+	s->l=s->i=0;
 }
 
 void fputshort(unsigned short v, FILE *fp)

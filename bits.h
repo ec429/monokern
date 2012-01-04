@@ -21,6 +21,7 @@ string sslurp(FILE *fp); // gets a file of string data possibly containing NULs;
 string init_string(void); // initialises a string buffer in heap
 string null_string(void); // returns a null string (no allocation)
 string make_string(const char *str); // initialises a string buffer in heap, with initial contents copied from str
+string dup_string(const string s); // allocates and makes a copy of a string
 void append_char(string *s, char c); // adds a character to a string buffer in heap (and realloc()s if needed)
 void append_str(string *s, const char *str); // adds a cstring to a string buffer in heap (and realloc()s if needed)
 void append_string(string *s, const string t); // adds a string to a string buffer in heap (and realloc()s if needed)

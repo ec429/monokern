@@ -1,6 +1,5 @@
 monokern: plans & ideas
 
-* Implement the new algorithm (branch newalgo)
 * Redesign the 'scores' format (and mangle the current scores file into the new format) to handle 2px deviations
 * Create (from scratch) a larger font, possibly 8x18, maybe with a humanist style
 * Write a program to automatically de-comment pbm files (thereby saving space in the .termk font)

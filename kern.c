@@ -183,24 +183,31 @@ int kern(const char *str, signed char *dev, const KERN *k)
 		}
 		size_t p=0;
 		while(!((str[p]==' ')||(str[p]==0x7f)||(str[p]<=0))) p++;
-		int maxsc=INT_MIN, mi=0, mj=0;
-		for(int i=0;i<3;i++)
+		if(p==1)
 		{
-			dev[0]=i-1;
-			for(int j=0;j<3;j++)
+			dev[0]=0;
+		}
+		else
+		{
+			int maxsc=INT_MIN, mi=0, mj=0;
+			for(int i=0;i<3;i++)
 			{
-				dev[p-1]=j-1;
-				int sc=ekern(p, str, dev, k);
-				if(sc>maxsc)
+				dev[0]=i-1;
+				for(int j=0;j<3;j++)
 				{
-					maxsc=sc;
-					mi=i;
-					mj=j;
+					dev[p-1]=j-1;
+					int sc=ekern(p, str, dev, k);
+					if(sc>maxsc)
+					{
+						maxsc=sc;
+						mi=i;
+						mj=j;
+					}
 				}
 			}
+			dev[0]=mi-1;
+			dev[p-1]=mj-1;
 		}
-		dev[0]=mi-1;
-		dev[p-1]=mj-1;
 		score+=ekern(p, str, dev, k);
 		str+=p;
 		dev+=p;

@@ -268,8 +268,25 @@ int main(int argc, char *argv[])
 			}
 			if(ligatures.buf[i++]!=' ')
 			{
-				fprintf(stderr, "termk: bad ligatures file\n");
-				return(EXIT_FAILURE);
+				if((ligatures.buf[i-1]=='\n')&&(l.what[1]>=32)&&(l.what[1]<128))
+				{
+					(l.data=letters[l.what[1]-32])->refcount++;
+					unsigned int n=nligs++;
+					lig *nl=realloc(ligs, nligs*sizeof(lig));
+					if(!nl)
+					{
+						SDL_FreeSurface(l.data);
+						perror("termk: realloc");
+						return(EXIT_FAILURE);
+					}
+					(ligs=nl)[n]=l;
+					continue;
+				}
+				else
+				{
+					fprintf(stderr, "termk: bad ligatures file\n");
+					return(EXIT_FAILURE);
+				}
 			}
 			if(i==ligatures.i)
 			{
@@ -279,6 +296,7 @@ int main(int argc, char *argv[])
 			unsigned int tl=strcspn(ligatures.buf+i, "\n"), j;
 			for(j=0;j<nlids;j++)
 			{
+				if(strlen(lids[j].name)!=tl) continue;
 				if(strncmp(ligatures.buf+i, lids[j].name, tl)==0) break;
 			}
 			if(j<nlids)

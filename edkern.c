@@ -81,11 +81,9 @@ int main(int argc, char *argv[])
 	{
 		for(unsigned int b=0;b<96;b++)
 		{
-			if(!(a&&b)) k->score[a][b][0]=k->score[a][b][1]=k->score[a][b][2]=0;
-			else if(!(k->score[a][b][0]&&k->score[a][b][1]&&k->score[a][b][2])) k->score[a][b][0]=(k->score[a][b][1]=k->score[a][b][2]=0)-30;
 			fputc(a+32, of);
 			fputc(b+32, of);
-			fprintf(of, " %d %d\n", k->score[a][b][0]-k->score[a][b][1], k->score[a][b][2]-k->score[a][b][1]);
+			fprintf(of, " %d %d\n", k->score[a][b][0], k->score[a][b][1]);
 		}
 	}
 	return(0);

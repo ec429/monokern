@@ -1,0 +1,3 @@
+keep best score for each of the 3 positions of the rightmost glyph
+work left to right; for each glyph there are only 7 cases to try
+then running time is O(n), which is great!

@@ -3,11 +3,7 @@
 #include <limits.h>
 #include <ctype.h>
 #include "kern.h"
-
-struct _kern
-{
-	int score[96][96][3];
-};
+#include "kern_hack.h"
 
 int ratepair(const char pair[2], const signed char dev[2], const KERN *k);
 
@@ -15,7 +11,7 @@ KERN *kern_init(FILE *fp)
 {
 	string s=sslurp(fp);
 	KERN *k=kern_init_s(s);
-	free_string(s);
+	free_string(&s);
 	return(k);
 }
 
@@ -24,7 +20,7 @@ KERN *kern_init_s(string s)
 	KERN *rv=malloc(sizeof(KERN));
 	for(unsigned int i=0;i<96;i++)
 		for(unsigned int j=0;j<96;j++)
-			rv->score[i][j][0]=(rv->score[i][j][1]=rv->score[i][j][2]=0)-15;
+			rv->score[i][j][0]=(rv->score[i][j][1]=0)-30;
 	if(!s.buf) return(rv);
 	unsigned int i=0;
 	while(i<s.i)
@@ -37,16 +33,21 @@ KERN *kern_init_s(string s)
 		int b=p[1];
 		a-=32;
 		b-=32;
-		if((a<0)||(a>94)) break;
-		if((b<0)||(b>94)) break;
+		if((a<0)||(a>95)) break;
+		if((b<0)||(b>95)) break;
 		if(p[2]!=' ') break;
-		if(sscanf(p+3, "%d %d %d", rv->score[a][b], rv->score[a][b]+1, rv->score[a][b]+2)!=3)
+		if(sscanf(p+3, "%d %d", rv->score[a][b], rv->score[a][b]+1)!=2)
 		{
 			free(rv);
 			return(NULL);
 		}
 		p[l]=c;
 		i+=l+1;
+	}
+	if(i<s.i)
+	{
+		free(rv);
+		return(NULL);
 	}
 	return(rv);
 }
@@ -62,14 +63,14 @@ int ratepair(const char pair[2], const signed char dev[2], const KERN *k)
 	if(b=='_') w=(w|1)/2;
 	a-=32;
 	b-=32;
-	if((a<0)||(a>94)||(b<0)||(b>94))
-		return(spa?-30:0);
+	if((a<0)||(a>95)||(b<0)||(b>95))
+		return((spa<0)?-30:0);
 	if(!(a&&b))
 		return(0);
 	if(spa<-1)
 		return(k->score[(unsigned char)a][(unsigned char)b][0]-30);
 	if(spa>1)
-		return((k->score[(unsigned char)a][(unsigned char)b][2]-30)*w);
+		return((k->score[(unsigned char)a][(unsigned char)b][1]-30)*w);
 	/*if(i)
 	{
 		int c=str[i-2];
@@ -81,7 +82,9 @@ int ratepair(const char pair[2], const signed char dev[2], const KERN *k)
 				if(abs(osp-spa)>1) rv-=30*w;
 		}
 	}*/
-	return(k->score[(unsigned char)a][(unsigned char)b][spa+1]*w);
+	if(!spa) return(0);
+	if(spa==1) return(k->score[(unsigned char)a][(unsigned char)b][1]*w);
+	return(k->score[(unsigned char)a][(unsigned char)b][0]*w);
 }
 
 int kern(const char *str, signed char *dev, const KERN *k)

@@ -22,7 +22,7 @@ $(PREFIX)/share/fonts/as.termkf: as.termkf
 termk: termk.c kern.h kern.o bits.h bits.o kfa.h kfa.o pbm.h pbm.o
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< $(LDFLAGS) kern.o bits.o kfa.o pbm.o -o $@ `sdl-config --cflags --libs`
 
-edkern: edkern.c kern.h kern.o bits.h bits.o pbm.h pbm.o
+edkern: edkern.c kern.h kern_hack.h kern.o bits.h bits.o pbm.h pbm.o
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< $(LDFLAGS) kern.o bits.o pbm.o -o $@ `sdl-config --cflags --libs`
 
 mk_scores: mk_scores.c
@@ -30,6 +30,8 @@ mk_scores: mk_scores.c
 
 fontify: fontify.c bits.h bits.o kfa.h kfa.o
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< $(LDFLAGS) bits.o kfa.o -o $@
+
+kern.o: kern.c kern.h kern_hack.h
 
 %: %.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< $(LDFLAGS) -o $@ `sdl-config --cflags --libs` -lSDL_image

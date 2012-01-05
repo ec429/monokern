@@ -3,9 +3,9 @@ PREFIX := /usr/local
 CC := gcc
 CFLAGS := -Wall -Wextra -Werror -pedantic --std=gnu99 -g -DPREFIX=\"$(PREFIX)\"
 
-all: kern.o edkern termk as.termkf
+all: kern.o edkern termk as.termkf 18.termkf
 
-install: $(PREFIX)/bin/termk $(PREFIX)/share/sounds/bell.wav $(PREFIX)/share/fonts/as.termkf
+install: $(PREFIX)/bin/termk $(PREFIX)/share/sounds/bell.wav $(PREFIX)/share/fonts/as.termkf $(PREFIX)/share/fonts/18.termkf
 
 $(PREFIX)/bin/termk: termk
 	install -D $< $@
@@ -13,7 +13,7 @@ $(PREFIX)/bin/termk: termk
 $(PREFIX)/share/sounds/bell.wav: bell.wav
 	install -D $< $@
 
-$(PREFIX)/share/fonts/as.termkf: as.termkf
+$(PREFIX)/share/fonts/%.termkf: %.termkf
 	install -D -m644 $< $@
 
 %.termkf: fontify %/*

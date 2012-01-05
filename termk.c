@@ -58,6 +58,8 @@ typedef struct
 }
 point;
 
+point fsiz={13, 6};
+
 typedef struct
 {
 	unsigned int nlines; // scrollback size
@@ -85,6 +87,7 @@ int main(int argc, char *argv[])
 {
 	const char *program="sh";
 	char *fake_arg=NULL, *const *argp=&fake_arg;
+	const char *font="as";
 	bool green=false;
 	for(int arg=1;arg<argc;arg++)
 	{
@@ -106,6 +109,10 @@ int main(int argc, char *argv[])
 			{
 				green=true;
 			}
+			else if(strcmp(argv[arg], "-18")==0)
+			{
+				font="18";
+			}
 			else
 			{
 				fprintf(stderr, "termk: unrecognised option, ignoring: %s\n", argv[arg]);
@@ -119,12 +126,6 @@ int main(int argc, char *argv[])
 		}
 	}
 	
-	SDL_Surface *screen=ginit(500, 320, 32);
-	if(!screen)
-	{
-		fprintf(stderr, "termk: ginit failed: %s\n", SDL_GetError());
-		return(EXIT_FAILURE);
-	}
 	KERN *k=NULL;
 	for(unsigned int i=0;i<96;i++)
 		letters[i]=NULL;
@@ -133,10 +134,13 @@ int main(int argc, char *argv[])
 	nlids=0;
 	lids=NULL;
 	string ligatures=null_string();
-	FILE *kfa=fopen(PREFIX"/share/fonts/as.termkf", "r");
+	string kfar=make_string(PREFIX"/share/fonts/");
+	append_str(&kfar, font);
+	append_str(&kfar, ".termkf");
+	FILE *kfa=fopen(kfar.buf, "r");
 	if(!kfa)
 	{
-		perror("termk: fopen: as.termkf");
+		fprintf(stderr, "termk: fopen: %s.termkf: %s\n", font, strerror(errno));
 		return(EXIT_FAILURE);
 	}
 	kf_archive kfb;
@@ -337,8 +341,21 @@ int main(int argc, char *argv[])
 		return(EXIT_FAILURE);
 	}
 	
+	if(letters[0])
+	{
+		fsiz.y=letters[0]->h+1;
+		fsiz.x=letters[0]->w+1;
+	}
+	
 	terminal t;
 	if(initterm(&t, 256, 24, 80)) return(EXIT_FAILURE);
+	
+	SDL_Surface *screen=ginit(8+t.cols*fsiz.x, 4+t.rows*fsiz.y, 32);
+	if(!screen)
+	{
+		fprintf(stderr, "termk: ginit failed: %s\n", SDL_GetError());
+		return(EXIT_FAILURE);
+	}
 	
 	int ptmx=open("/dev/ptmx", O_RDWR);
 	if(!ptmx)
@@ -414,7 +431,7 @@ int main(int argc, char *argv[])
 	int fdmax=ptmx;
 	struct timeval tv;
 	
-	SDL_FillRect(screen, &(SDL_Rect){0, 0, 500, 320}, SDL_MapRGB(screen->format, 0, 0, 0));
+	SDL_FillRect(screen, &(SDL_Rect){0, 0, screen->w, screen->h}, SDL_MapRGB(screen->format, 0, 0, 0));
 	SDL_Flip(screen);
 	SDL_WM_SetCaption("termk", "termk");
 	SDL_EnableUNICODE(1);
@@ -724,8 +741,8 @@ int main(int argc, char *argv[])
 					}
 					if(t.dirty[j][1]||(j==t.cur.y)||(j==t.old.y)||(t.scroll!=t.scrold))
 					{
-						SDL_FillRect(screen, &(SDL_Rect){0, 4+i*13, 500, 13}, SDL_MapRGB(screen->format, 0, 0, 0));
-						dpstr(screen, 4, 4+i*13, t.text[j], t.dev[j], j==t.cur.y, t.cur.x);
+						SDL_FillRect(screen, &(SDL_Rect){0, 2+i*fsiz.y, screen->w, fsiz.y}, SDL_MapRGB(screen->format, 0, 0, 0));
+						dpstr(screen, 4, 2+i*fsiz.y, t.text[j], t.dev[j], j==t.cur.y, t.cur.x);
 						t.dirty[j][1]=false;
 					}
 				}
@@ -966,7 +983,7 @@ void pstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s)
 	while(*s)
 	{
 		pchar(scrn, x, y, *s++);
-		x+=6;
+		x+=fsiz.x;
 	}
 }
 
@@ -999,8 +1016,8 @@ void dpstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s, con
 		else
 			SDL_BlitSurface(ligs[i].data, NULL, scrn, &(SDL_Rect){x+dev[scx]+2-(ligs[i].data->w>>1), y, 0, 0});
 		if(iscy&&(scx==cx))
-			invert(scrn, (SDL_Rect){x+dev[scx], y, 5, 12});
-		x+=6;
+			invert(scrn, (SDL_Rect){x+dev[scx], y, fsiz.x-1, fsiz.y-1});
+		x+=fsiz.x;
 		scx++;
 	}
 }

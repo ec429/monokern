@@ -27,6 +27,7 @@ unsigned int nlids;
 lid *lids;
 unsigned int nligs;
 lig *ligs;
+unsigned int sy=13, sx=6;
 
 SDL_Surface *ginit(unsigned int w, unsigned int h, unsigned char bpp);
 void pchar(SDL_Surface *scrn, unsigned int x, unsigned int y, char c);
@@ -77,7 +78,12 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "edkern: kern_init failed\n");
 		return(EXIT_FAILURE);
 	}
-	SDL_Surface *screen=ginit(320, 240, 32);
+	if(letters[0])
+	{
+		sy=letters[0]->h+1;
+		sx=letters[0]->w+1;
+	}
+	SDL_Surface *screen=ginit(20+50*sx, 32+16*sy, 32);
 	if(!screen)
 	{
 		fprintf(stderr, "edkern: ginit failed: %s\n", SDL_GetError());
@@ -86,11 +92,11 @@ int main(int argc, char *argv[])
 	for(unsigned char j=last;j<96;j++)
 	{
 		repeat:
-		SDL_FillRect(screen, &(SDL_Rect){0, 0, 320, 240}, SDL_MapRGB(screen->format, 0, 0, 0));
-		SDL_FillRect(screen, &(SDL_Rect){221, 10, 99, 9}, SDL_MapRGB(screen->format, 31, 31, 31));
-		pchar(screen, 220+j, 8, '>');
+		SDL_FillRect(screen, &(SDL_Rect){0, 0, screen->w, screen->h}, SDL_MapRGB(screen->format, 0, 0, 0));
+		SDL_FillRect(screen, &(SDL_Rect){screen->w-94-sx, 8, 94+sx, sy-1}, SDL_MapRGB(screen->format, 31, 31, 31));
+		pchar(screen, screen->w-95-sx+j, 8, '>');
 		pchar(screen, 8, 8, i+32);
-		pchar(screen, 211, 8, j+32);
+		pchar(screen, 7+34*sx, 8, j+32);
 		for(int y=0;y<12;y++)
 		{
 			char word[9];
@@ -100,13 +106,13 @@ int main(int argc, char *argv[])
 			int n=1+(rand()*5.0)/RAND_MAX;
 			word[n]=i+32;
 			word[n+1]=0;
-			pstr(screen, 8, 24+(y*14), word);
-			pstr(screen, 88, 24+(y*14), word);
-			pstr(screen, 168, 24+(y*14), word);
+			pstr(screen, 8, 36+(y*sy), word);
+			pstr(screen, 8+12*sx, 36+(y*sy), word);
+			pstr(screen, 8+24*sx, 36+(y*sy), word);
 			word[n+1]=j+32;
-			pstr(screen, 13+6*n, 24+(y*14), word+n+1);
-			pstr(screen, 94+6*n, 24+(y*14), word+n+1);
-			pstr(screen, 175+6*n, 24+(y*14), word+n+1);
+			pstr(screen, 13+sx*n, 36+(y*sy), word+n+1);
+			pstr(screen, 14+sx*(n+12), 36+(y*sy), word+n+1);
+			pstr(screen, 15+sx*(n+24), 36+(y*sy), word+n+1);
 		}
 		SDL_Flip(screen);
 		SDL_Event event;
@@ -116,9 +122,9 @@ int main(int argc, char *argv[])
 			{
 				char num[16];
 				snprintf(num, 16, "%d    ", k->score[i][j][0]);
-				pstr(screen, 58, 12, num);
+				pstr(screen, 8+4*sx, 12, num);
 				snprintf(num, 16, "%d    ", k->score[i][j][1]);
-				pstr(screen, 157, 12, num);
+				pstr(screen, 8+25*sx, 12, num);
 				SDL_Flip(screen);
 			}
 			if(SDL_PollEvent(&event))
@@ -207,7 +213,7 @@ SDL_Surface *ginit(unsigned int w, unsigned int h, unsigned char bpp)
 
 void pchar(SDL_Surface *scrn, unsigned int x, unsigned int y, char c)
 {
-	SDL_BlitSurface(letters[(unsigned char)c-32], NULL, scrn, &(SDL_Rect){x, y, 5, 8});
+	SDL_BlitSurface(letters[(unsigned char)c-32], NULL, scrn, &(SDL_Rect){x, y, 0, 0});
 }
 
 void pstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s)
@@ -216,6 +222,6 @@ void pstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s)
 	while(*s)
 	{
 		pchar(scrn, x, y, *s++);
-		x+=6;
+		x+=sx;
 	}
 }

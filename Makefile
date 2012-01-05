@@ -31,7 +31,7 @@ fontify: fontify.c bits.h bits.o kfa.h kfa.o
 kern.o: kern.c kern.h kern_hack.h
 
 %: %.c
-	$(CC) $(CFLAGS) $(CPPFLAGS) $< $(LDFLAGS) -o $@ `sdl-config --cflags --libs` -lSDL_image
+	$(CC) $(CFLAGS) $(CPPFLAGS) $< $(LDFLAGS) -o $@ `sdl-config --cflags --libs`
 
 %.o: %.c %.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@ `sdl-config --cflags`

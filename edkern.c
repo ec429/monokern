@@ -35,12 +35,15 @@ void pstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s);
 int main(int argc, char *argv[])
 {
 	unsigned char i=0, last=1;
+	const char *font="as";
 	for(int arg=1;arg<argc;arg++)
 	{
 		if(strlen(argv[arg])==1)
 			i=argv[arg][0]-32;
 		else if(argv[arg][0]=='-')
 			last=argv[arg][1]-32;
+		else if(argv[arg][0]=='@')
+			font=argv[arg]+1;
 		else
 			fprintf(stderr, "Bad arg: %s\n", argv[arg]);
 	}
@@ -49,8 +52,8 @@ int main(int argc, char *argv[])
 		i=(rand()*95.0/RAND_MAX)+1;
 	for(int i=0;i<96;i++)
 	{
-		char lfn[14];
-		sprintf(lfn, "as/as_%hhu.pbm", i+32);
+		char lfn[strlen(font)+12];
+		snprintf(lfn, strlen(font)+12, "%s/as_%hhu.pbm", font, i+32);
 		FILE *fp=fopen(lfn, "r");
 		if(!fp)
 		{
@@ -64,7 +67,9 @@ int main(int argc, char *argv[])
 			return(EXIT_FAILURE);
 		}
 	}
-	FILE *kf=fopen("as/scores", "r");
+	char kfn[strlen(font)+8];
+	snprintf(kfn, strlen(font)+8, "%s/scores", font);
+	FILE *kf=fopen(kfn, "r");
 	KERN *k=kern_init(kf);
 	fclose(kf);
 	if(!k)
@@ -169,7 +174,7 @@ int main(int argc, char *argv[])
 		}
 		if(errupt==2) break;
 	}
-	FILE *of=fopen("as/scores", "w");
+	FILE *of=fopen(kfn, "w");
 	for(unsigned int a=0;a<96;a++)
 	{
 		for(unsigned int b=0;b<96;b++)

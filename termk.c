@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
 			else if((strcmp(argv[arg], "--help")==0)||(strcmp(argv[arg], "-h")==0))
 			{
 				fprintf(stderr, "Usage: termk [<opts>] [<program> [<args>]]\n");
-				fprintf(stderr, "Options:\n\t--\t\tEnd option list (for <program> beginning with '-')\n\t--green\t\tUse green display filter\n");
+				fprintf(stderr, "Options:\n\t--\t\tEnd option list (for <program> beginning with '-')\n\t--green\t\tUse green display filter\n\t-18\t\tUse font \"18\"\n");
 				return(EXIT_SUCCESS);
 			}
 			else if(strcmp(argv[arg], "--green")==0)

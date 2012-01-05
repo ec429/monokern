@@ -10,3 +10,4 @@ termk emulates a vt52, which is somewhat limited in its capabilities.
 It supports cursor movement, and consequently termcap/curses will work (so long as your termcap has an entry for vt52, which it should), but it doesn't support colour or other attributes.
 Also, termk does not currently have Unicode support.
 Lastly note that termk gets the font (and kerning tables) from an archive 'as.termkf' which it expects to find in /usr/local/share/fonts; consequently, you need to [sudo] make install, first, or it won't run.
+There is a second font, somewhat larger; to use it, run "termk -18 [shell] [shellargs]".  The -18 font has not been fully kerned or ligated yet.

@@ -240,6 +240,7 @@ int main(int argc, char *argv[])
 			}
 			l.spa[0]=ligatures.buf[i++];
 			if(l.spa[0]=='-') l.spa[0]=-1;
+			else if(l.spa[0]=='.') l.spa[0]=0;
 			else if(l.spa[0]=='+') l.spa[0]=1;
 			if(i==ligatures.i)
 			{
@@ -254,6 +255,7 @@ int main(int argc, char *argv[])
 			}
 			l.spa[1]=ligatures.buf[i++];
 			if(l.spa[1]=='-') l.spa[1]=-1;
+			else if(l.spa[1]=='.') l.spa[1]=0;
 			else if(l.spa[1]=='+') l.spa[1]=1;
 			if(i==ligatures.i)
 			{

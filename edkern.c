@@ -110,9 +110,9 @@ int main(int argc, char *argv[])
 			pstr(screen, 8+12*sx, 36+(y*sy), word);
 			pstr(screen, 8+24*sx, 36+(y*sy), word);
 			word[n+1]=j+32;
-			pstr(screen, 13+sx*n, 36+(y*sy), word+n+1);
-			pstr(screen, 14+sx*(n+12), 36+(y*sy), word+n+1);
-			pstr(screen, 15+sx*(n+24), 36+(y*sy), word+n+1);
+			pstr(screen, 7+sx*(n+1), 36+(y*sy), word+n+1);
+			pstr(screen, 8+sx*(n+13), 36+(y*sy), word+n+1);
+			pstr(screen, 9+sx*(n+25), 36+(y*sy), word+n+1);
 		}
 		SDL_Flip(screen);
 		SDL_Event event;

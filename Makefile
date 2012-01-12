@@ -5,6 +5,9 @@ CFLAGS := -Wall -Wextra -Werror -pedantic --std=gnu99 -g -DPREFIX=\"$(PREFIX)\"
 
 all: kern.o edkern termk as.termkf 18.termkf
 
+clean:
+	-rm *.termkf *.o edkern termk
+
 install: $(PREFIX)/bin/termk $(PREFIX)/share/sounds/bell.wav $(PREFIX)/share/fonts/as.termkf $(PREFIX)/share/fonts/18.termkf
 
 $(PREFIX)/bin/termk: termk

@@ -85,7 +85,7 @@ int getpm(const char *escd, unsigned int *i, unsigned int *g, unsigned int e);
 
 int main(int argc, char *argv[])
 {
-	const char *program="sh";
+	const char *program="bash";
 	char *fake_arg=NULL, *const *argp=&fake_arg;
 	const char *font="as";
 	bool green=false;

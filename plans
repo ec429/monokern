@@ -3,4 +3,4 @@ monokern: plans & ideas
 * Redesign the 'scores' format (and mangle the current scores file into the new format) to handle 2px deviations
 * Write a program to automatically de-comment pbm files (thereby saving space in the .termk font)
 * Find a better way of detecting when wide-glyphs can be used, and positioning them accordingly
-* Fix the bizarro behaviour when exec fails
+* Fix the SIGTSTP hang when exec fails (can we fix it by handling SIGCHLD?)

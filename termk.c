@@ -768,13 +768,13 @@ int main(int argc, char *argv[])
 						SDL_keysym key=event.key.keysym;
 						SDLMod mod=SDL_GetModState();
 						if(key.sym==SDLK_UP)
-							do_write(ptmx, "\033A");
+							do_write(ptmx, (mod&KMOD_CTRL)?"\033[1;5A":"\033A"); // the ctrl-cursors are actually xtermish, not vt52
 						else if(key.sym==SDLK_DOWN)
-							do_write(ptmx, "\033B");
+							do_write(ptmx, (mod&KMOD_CTRL)?"\033[1;5B":"\033B");
 						else if(key.sym==SDLK_RIGHT)
-							do_write(ptmx, (mod&KMOD_CTRL)?"\033f":"\033C"); // M-f is a readline-ism
+							do_write(ptmx, (mod&KMOD_CTRL)?"\033[1;5C":"\033C");
 						else if(key.sym==SDLK_LEFT)
-							do_write(ptmx, (mod&KMOD_CTRL)?"\033b":"\033D"); // M-b is a readline-ism
+							do_write(ptmx, (mod&KMOD_CTRL)?"\033[1;5D":"\033D");
 						/* begin readline-isms */
 						else if((key.sym==SDLK_HOME)||((key.sym==SDLK_KP7)&&!(mod&KMOD_NUM)))
 							do_write(ptmx, "\001"); // C-a

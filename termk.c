@@ -1014,6 +1014,34 @@ int main(int argc, char *argv[])
 							do_write(ptmx, (mod&KMOD_CTRL)?"\033[1;5C":"\033C");
 						else if(key.sym==SDLK_LEFT)
 							do_write(ptmx, (mod&KMOD_CTRL)?"\033[1;5D":"\033D");
+						else if(key.sym==SDLK_PAGEUP)
+							do_write(ptmx, (mod&KMOD_CTRL)?"\033[5;5~":"\033[5~");
+						else if(key.sym==SDLK_PAGEDOWN)
+							do_write(ptmx, (mod&KMOD_CTRL)?"\033[6;5~":"\033[6~");
+						else if(key.sym==SDLK_F1)
+							do_write(ptmx, "\033(f1)");
+						else if(key.sym==SDLK_F2)
+							do_write(ptmx, "\033(f2)");
+						else if(key.sym==SDLK_F3)
+							do_write(ptmx, "\033(f3)");
+						else if(key.sym==SDLK_F4)
+							do_write(ptmx, "\033(f4)");
+						else if(key.sym==SDLK_F5)
+							do_write(ptmx, "\033(f5)");
+						else if(key.sym==SDLK_F6)
+							do_write(ptmx, "\033(f6)");
+						else if(key.sym==SDLK_F7)
+							do_write(ptmx, "\033(f7)");
+						else if(key.sym==SDLK_F8)
+							do_write(ptmx, "\033(f8)");
+						else if(key.sym==SDLK_F9)
+							do_write(ptmx, "\033(f9)");
+						else if(key.sym==SDLK_F10)
+							do_write(ptmx, "\033(f10)");
+						else if(key.sym==SDLK_F11)
+							do_write(ptmx, "\033(f11)");
+						else if(key.sym==SDLK_F12)
+							do_write(ptmx, "\033(f12)");
 						/* begin readline-isms */
 						else if((key.sym==SDLK_HOME)||((key.sym==SDLK_KP7)&&!(mod&KMOD_NUM)))
 							do_write(ptmx, "\001"); // C-a
@@ -1292,7 +1320,12 @@ void dpstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s, con
 		if(i==nligs)
 			pchar(scrn, x+dev[scx], y, s[scx], at[scx]);
 		else
-			SDL_BlitSurface(ligs[i].data, NULL, scrn, &(SDL_Rect){x+dev[scx]+2-(ligs[i].data->w>>1), y, 0, 0});
+		{
+			SDL_Surface *l=NULL;
+			if(at[scx].bold) l=ligs[i].bold;
+			if(!l) l=ligs[i].data;
+			SDL_BlitSurface(l, NULL, scrn, &(SDL_Rect){x+dev[scx]+2-(l->w>>1), y, 0, 0});
+		}
 		x+=fsiz.x;
 		scx++;
 	}

@@ -1,5 +1,8 @@
 termk52|vt52-termk|termk-vt52|termk/monokern vt52 branch,
-	use=vt52,am,
+	use=vt52,
+# booleans
+	am,
+# control codes
 	el1=\E(clr_bol),
 	hs,
 		wsl#80,
@@ -11,3 +14,6 @@ termk52|vt52-termk|termk-vt52|termk/monokern vt52 branch,
 	setf=\E(set_foreground:%d),
 	setb=\E(set_background:%d),
 	sgr0=\E(exit_attribute_mode),
+# keys
+	kpp=\E[5~,knp=\E[6~,
+	kf1=\E(f1),kf2=\E(f2),kf3=\E(f3),kf4=\E(f4),kf5=\E(f5),kf6=\E(f6),kf7=\E(f7),kf8=\E(f8),kf9=\E(f9),kf10=\E(f10),kf11=\E(f11),kf12=\E(f12),

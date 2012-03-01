@@ -8,6 +8,7 @@
 #include <sys/select.h>
 #include <time.h>
 #include <fcntl.h>
+#include <term.h>
 #include <signal.h>
 #include <errno.h>
 #include <SDL.h>
@@ -80,7 +81,7 @@ terminal;
 
 int initterm(terminal *t, unsigned int nlines, unsigned int rows, unsigned int cols);
 void cdown(terminal *t);
-void cright(terminal *t, bool wrap);
+bool cright(terminal *t, bool wrap);
 int getpm(const char *escd, unsigned int *i, unsigned int *g, unsigned int e);
 
 int main(int argc, char *argv[])
@@ -89,6 +90,7 @@ int main(int argc, char *argv[])
 	char *fake_arg=NULL, *const *argp=&fake_arg;
 	const char *font="as";
 	bool green=false;
+	bool terminfo=true;
 	for(int arg=1;arg<argc;arg++)
 	{
 		if(argv[arg][0]=='-')
@@ -113,6 +115,10 @@ int main(int argc, char *argv[])
 			{
 				font="18";
 			}
+			else if(strcmp(argv[arg], "--vt52")==0)
+			{
+				terminfo=false;
+			}
 			else
 			{
 				fprintf(stderr, "termk: unrecognised option, ignoring: %s\n", argv[arg]);
@@ -124,6 +130,50 @@ int main(int argc, char *argv[])
 			argp=argv+arg;
 			break;
 		}
+	}
+	
+	const char *term=NULL;
+	if(terminfo)
+	{
+		const char * const terms[]={"termk-vt52","termk","vt52-am",NULL};
+		unsigned int i=0;
+		while(terms[i])
+		{
+			int errret;
+			if(setupterm(terms[i], 1, &errret))
+			{
+				switch(errret)
+				{
+					case 1: // hardcopy
+						// merely unsuitable, so carry on looking
+						fprintf(stderr, "terminfo '%s' unsuitable: is hardcopy\n", terms[i]);
+					break;
+					case 0: // terminfo entry not found
+						// merely unsuitable, so carry on looking
+						fprintf(stderr, "terminfo '%s' not found\n", terms[i]);
+					break;
+					case -1: // terminfo database not found
+					default: // unknown error
+						// fatal error
+						fprintf(stderr, "terminfo '%s': setupterm error %d\n", terms[i], errret);
+						terminfo=false;
+						goto noti;
+					break;
+				}
+			}
+			else
+			{
+				term=terms[i];
+				fprintf(stderr, "terminfo '%s' selected\n", term);
+				break;
+			}
+		}
+	}
+	else
+	{
+		noti:
+		term="vt52";
+		fprintf(stderr, "no terminfo.  $TERM=%s\n", term);
 	}
 	
 	KERN *k=NULL;
@@ -383,7 +433,7 @@ int main(int argc, char *argv[])
 		break;
 		case 0: // child
 		setsid();
-		setenv("TERM", "vt52", 1);
+		setenv("TERM", term, 1);
 		char val[16];
 		snprintf(val, 16, "%u", t.rows);
 		setenv("LINES", val, 1);
@@ -439,6 +489,7 @@ int main(int argc, char *argv[])
 	SDL_Event event;
 	bool do_update=true;
 	time_t belt=0;
+	int since_update=0;
 	int errupt=0;
 	while(!errupt)
 	{
@@ -467,7 +518,8 @@ int main(int argc, char *argv[])
 				}
 				else if(b<0) // this is what happens when the child closes
 				{
-					perror("read");
+					if(errno!=EIO)
+						perror("read");
 					kill(pid, SIGKILL);
 					return(EXIT_SUCCESS);
 				}
@@ -684,7 +736,7 @@ int main(int argc, char *argv[])
 							break;
 							case 9: // HT
 								cright(&t, false);
-								while(t.cur.x&7) cright(&t, false);
+								while((t.cur.x&7) && cright(&t, false));
 							break;
 							case 0xa: // LF
 							case 0xb: // VT
@@ -708,20 +760,29 @@ int main(int argc, char *argv[])
 						{
 							t.text[t.cur.y][t.cur.x]=0x7f;
 							t.dirty[t.cur.y][0]=true;
-							cright(&t, false);
+							cright(&t, terminfo?auto_right_margin:false);
 						}
 						else
 						{
 							t.text[t.cur.y][t.cur.x]=t.meta?c|0x80:c;
 							t.dirty[t.cur.y][0]=true;
-							cright(&t, false);
+							cright(&t, terminfo?auto_right_margin:false);
 						}
 					}
 				}
 				do_update=true;
 				t.scroll=0;
 			}
+			if(do_update)
+				since_update++;
 			else
+				since_update=0;
+			if(since_update>255)
+			{
+				do_update=false;
+				since_update=0;
+			}
+			if(!do_update)
 			{
 				for(unsigned int i=0;i<t.rows;i++)
 				{
@@ -914,7 +975,7 @@ void cdown(terminal *t)
 	}
 }
 
-void cright(terminal *t, bool wrap)
+bool cright(terminal *t, bool wrap)
 {
 	if(++t->cur.x>=t->cols)
 	{
@@ -925,7 +986,9 @@ void cright(terminal *t, bool wrap)
 		}
 		else
 			t->cur.x--;
+		return(!wrap);
 	}
+	return(false);
 }
 
 int getpm(const char *escd, unsigned int *i, unsigned int *g, unsigned int e)

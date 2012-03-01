@@ -18,6 +18,8 @@
 #include "kfa.h"
 #include "pbm.h"
 
+#define SINCE_LIMIT	65536	// limit for 'batching' input before doing a screen update
+
 #define min(a,b)	((a)<(b)?(a):(b))
 #define max(a,b)	((a)>(b)?(a):(b))
 
@@ -34,8 +36,7 @@ attr;
 typedef unsigned char colour[3];
 
 SDL_Surface *ginit(unsigned int w, unsigned int h, unsigned char bpp);
-void pchar(SDL_Surface *scrn, unsigned int x, unsigned int y, char c);
-void pstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s);
+void pchar(SDL_Surface *scrn, unsigned int x, unsigned int y, char c, attr a);
 void dpstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s, const attr *at, const signed char *dev, bool iscy, unsigned int cx, bool forcebw);
 void invert(SDL_Surface *scrn, SDL_Rect r);
 void filter(SDL_Surface *scrn, SDL_Rect r, colour fore, colour back);
@@ -46,6 +47,7 @@ void do_write(int fd, const char *);
 typedef struct
 {
 	SDL_Surface *data;
+	SDL_Surface *bold;
 	unsigned char what[3];
 	signed char spa[2];
 }
@@ -54,11 +56,13 @@ lig;
 typedef struct
 {
 	char *name;
+	bool bold;
 	SDL_Surface *data;
 }
 lid;
 
 SDL_Surface *letters[96];
+SDL_Surface *bold[96];
 SDL_Surface *metas[32]; // from M-_ to M-~
 unsigned int nlids;
 lid *lids;
@@ -197,6 +201,8 @@ int main(int argc, char *argv[])
 	KERN *k=NULL;
 	for(unsigned int i=0;i<96;i++)
 		letters[i]=NULL;
+	for(unsigned int i=0;i<96;i++)
+		bold[i]=NULL;
 	for(unsigned int i=0;i<32;i++)
 		metas[i]=NULL;
 	nlids=0;
@@ -237,6 +243,22 @@ int main(int argc, char *argv[])
 				return(EXIT_FAILURE);
 			}
 		}
+		else if(sscanf(kfb.ents[i].name.buf, "bo_%hhu.pbm", &j)==1)
+		{
+			if((j>=31)&&(j<128))
+			{
+				if(!(bold[j-32]=pbm_string(kfb.ents[i].data)))
+				{
+					fprintf(stderr, "termk: bad bo/%s\n", kfb.ents[i].name.buf);
+					return(EXIT_FAILURE);
+				}
+			}
+			else
+			{
+				fprintf(stderr, "termk: bad bo/%s\n", kfb.ents[i].name.buf);
+				return(EXIT_FAILURE);
+			}
+		}
 		else if(sscanf(kfb.ents[i].name.buf, "ma_%hhu.pbm", &j)==1)
 		{
 			if((j>=96)&&(j<128))
@@ -259,6 +281,40 @@ int main(int argc, char *argv[])
 			if(dot)
 			{
 				lid l;
+				l.bold=false;
+				*dot=0;
+				l.name=strdup(kfb.ents[i].name.buf+3);
+				*dot='.';
+				if(!(l.data=pbm_string(kfb.ents[i].data)))
+				{
+					free(l.name);
+					fprintf(stderr, "termk: bad li/%s\n", kfb.ents[i].name.buf);
+					return(EXIT_FAILURE);
+				}
+				unsigned int n=nlids++;
+				lid *nl;
+				if(!(nl=realloc(lids, nlids*sizeof(lid))))
+				{
+					free(l.name);
+					free(l.data);
+					perror("termk: realloc");
+					return(EXIT_FAILURE);
+				}
+				(lids=nl)[n]=l;
+			}
+			else
+			{
+				fprintf(stderr, "termk: bad li/%s\n", kfb.ents[i].name.buf);
+				return(EXIT_FAILURE);
+			}
+		}
+		else if(strncmp(kfb.ents[i].name.buf, "lb_", 3)==0)
+		{
+			char *dot=strrchr(kfb.ents[i].name.buf, '.');
+			if(dot)
+			{
+				lid l;
+				l.bold=true;
 				*dot=0;
 				l.name=strdup(kfb.ents[i].name.buf+3);
 				*dot='.';
@@ -370,6 +426,7 @@ int main(int argc, char *argv[])
 			unsigned int tl=strcspn(ligatures.buf+i, "\n"), j;
 			for(j=0;j<nlids;j++)
 			{
+				if(lids[j].bold) continue;
 				if(strlen(lids[j].name)!=tl) continue;
 				if(strncmp(ligatures.buf+i, lids[j].name, tl)==0) break;
 			}
@@ -382,6 +439,14 @@ int main(int argc, char *argv[])
 				fprintf(stderr, "termk: ligatures: %.*s not found\n", tl, ligatures.buf+i);
 				return(EXIT_FAILURE);
 			}
+			for(j=0;j<nlids;j++)
+			{
+				if(!lids[j].bold) continue;
+				if(strlen(lids[j].name)!=tl) continue;
+				if(strncmp(ligatures.buf+i, lids[j].name, tl)==0) break;
+			}
+			if(j<nlids)
+				(l.bold=lids[j].data)->refcount++;
 			i+=tl;
 			unsigned int n=nligs++;
 			lig *nl=realloc(ligs, nligs*sizeof(lig));
@@ -732,10 +797,27 @@ int main(int argc, char *argv[])
 													if(exit_attribute_mode)
 														t.sgr=DEFAULT_ATTR;
 												}
+												else if(strcmp(escape, "enter_bold_mode")==0)
+												{
+													if(enter_bold_mode)
+														t.sgr.bold=true;
+												}
 												else if(strcmp(escape, "enter_reverse_mode")==0)
 												{
 													if(enter_reverse_mode)
 														t.sgr.revvid=true;
+												}
+												else if(strncmp(escape, "set_foreground:", 15)==0)
+												{
+													if(set_foreground)
+														if(!sscanf(escape+15, "%hhu", &t.sgr.fore))
+															fprintf(stderr, "termk: bad set_foreground:%s\n", escape+15);
+												}
+												else if(strncmp(escape, "set_background:", 15)==0)
+												{
+													if(set_background)
+														if(!sscanf(escape+15, "%hhu", &t.sgr.back))
+															fprintf(stderr, "termk: bad set_background:%s\n", escape+15);
 												}
 												else
 												{
@@ -881,7 +963,7 @@ int main(int argc, char *argv[])
 				since_update++;
 			else
 				since_update=0;
-			if(since_update>255)
+			if(since_update>SINCE_LIMIT)
 			{
 				do_update=false;
 				since_update=0;
@@ -1173,10 +1255,15 @@ SDL_Surface *ginit(unsigned int w, unsigned int h, unsigned char bpp)
 	return(rv);
 }
 
-void pchar(SDL_Surface *scrn, unsigned int x, unsigned int y, char c)
+void pchar(SDL_Surface *scrn, unsigned int x, unsigned int y, char c, attr a)
 {
 	if((signed char)c>=32)
-		SDL_BlitSurface(letters[(unsigned char)c-32], NULL, scrn, &(SDL_Rect){x, y, 0, 0});
+	{
+		if(a.bold&&bold[(unsigned char)c-32])
+			SDL_BlitSurface(bold[(unsigned char)c-32], NULL, scrn, &(SDL_Rect){x, y, 0, 0});
+		else
+			SDL_BlitSurface(letters[(unsigned char)c-32], NULL, scrn, &(SDL_Rect){x, y, 0, 0});
+	}
 	else if((signed char)c<0)
 	{
 		unsigned char d=c-223;
@@ -1184,16 +1271,6 @@ void pchar(SDL_Surface *scrn, unsigned int x, unsigned int y, char c)
 		else SDL_BlitSurface(letters[95], NULL, scrn, &(SDL_Rect){x, y, 0, 0});
 	}
 	else SDL_BlitSurface(letters[95], NULL, scrn, &(SDL_Rect){x, y, 0, 0});
-}
-
-void pstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s)
-{
-	if(!s) return;
-	while(*s)
-	{
-		pchar(scrn, x, y, *s++);
-		x+=fsiz.x;
-	}
 }
 
 void dpstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s, const attr *at, const signed char *dev, bool iscy, unsigned int cx, bool forcebw)
@@ -1221,7 +1298,7 @@ void dpstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s, con
 			}
 		}
 		if(i==nligs)
-			pchar(scrn, x+dev[scx], y, s[scx]);
+			pchar(scrn, x+dev[scx], y, s[scx], at[scx]);
 		else
 			SDL_BlitSurface(ligs[i].data, NULL, scrn, &(SDL_Rect){x+dev[scx]+2-(ligs[i].data->w>>1), y, 0, 0});
 		x+=fsiz.x;
@@ -1248,12 +1325,14 @@ void dpstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s, con
 
 void colourmap(attr a, colour fore, colour back)
 {
-	fore[0]=(a.fore&4)?0xff:0;
-	fore[1]=(a.fore&2)?0xff:0;
-	fore[2]=(a.fore&1)?0xff:0;
-	back[0]=(a.back&4)?0xff:0;
-	back[1]=(a.back&2)?0xff:0;
-	back[2]=(a.back&1)?0xff:0;
+	fore[0]=(a.fore&4)?255:0;
+	fore[1]=(a.fore&2)?255:0;
+	fore[2]=(a.fore&1)?255:0;
+	if(a.bold&&!a.fore)
+		fore[0]=fore[1]=fore[2]=85;
+	back[0]=(a.back&4)?205:0;
+	back[1]=(a.back&2)?205:0;
+	back[2]=(a.back&1)?205:0;
 }
 
 void invert(SDL_Surface *scrn, SDL_Rect r)
@@ -1271,12 +1350,19 @@ void invert(SDL_Surface *scrn, SDL_Rect r)
 
 void filter(SDL_Surface *scrn, SDL_Rect r, colour fore, colour back)
 {
+	bool wob=true;
+	for(unsigned int i=0;i<3;i++)
+	{
+		if(fore[i]!=255) wob=false;
+		if(back[i]) wob=false;
+	}
+	if(wob) return; // do nothing
 	for(int x=r.x;x<r.x+r.w;x++)
 		for(int y=r.y;y<r.y+r.h;y++)
 		{
 			long int s_off = (y*scrn->pitch) + x*scrn->format->BytesPerPixel;
 			unsigned char *pixloc = ((unsigned char *)scrn->pixels)+s_off;
-			bool set=(pixloc[0]|pixloc[1]|pixloc[2])&0x80;
+			bool set=pixloc[0];
 			if(set)
 				memcpy(pixloc, fore, 3);
 			else

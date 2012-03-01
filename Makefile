@@ -1,5 +1,6 @@
 # Makefile for monokern
 PREFIX := /usr/local
+TERMINFO := /usr/share/terminfo
 CC := gcc
 CFLAGS := -Wall -Wextra -Werror -pedantic --std=gnu99 -g -DPREFIX=\"$(PREFIX)\"
 
@@ -8,10 +9,13 @@ all: kern.o edkern termk as.termkf 18.termkf
 clean:
 	-rm *.termkf *.o edkern termk
 
-install: $(PREFIX)/bin/termk $(PREFIX)/share/sounds/bell.wav $(PREFIX)/share/fonts/as.termkf $(PREFIX)/share/fonts/18.termkf
+install: $(PREFIX)/bin/termk $(PREFIX)/share/sounds/bell.wav $(PREFIX)/share/fonts/as.termkf $(PREFIX)/share/fonts/18.termkf $(TERMINFO)/t/termk52
 
 $(PREFIX)/bin/termk: termk
 	install -D $< $@
+
+$(TERMINFO)/t/termk52: termk52.ti
+	sudo tic termk52.ti
 
 $(PREFIX)/share/sounds/bell.wav: bell.wav
 	install -D $< $@

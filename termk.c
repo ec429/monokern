@@ -589,7 +589,7 @@ int main(int argc, char *argv[])
 		}
 		else
 		{
-			if(FD_ISSET(ptmx, &readfds))
+			if((FD_ISSET(ptmx, &readfds))&&(since_update++<SINCE_LIMIT))
 			{
 				char c;
 				ssize_t b=read(ptmx, &c, 1);
@@ -959,17 +959,9 @@ int main(int argc, char *argv[])
 				do_update=true;
 				t.scroll=0;
 			}
-			if(do_update)
-				since_update++;
 			else
-				since_update=0;
-			if(since_update>SINCE_LIMIT)
 			{
-				do_update=false;
 				since_update=0;
-			}
-			if(!do_update)
-			{
 				for(unsigned int i=0;i<t.rows;i++)
 				{
 					unsigned int j=t.nlines+i-t.rows-t.scroll;

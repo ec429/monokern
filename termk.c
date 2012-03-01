@@ -1350,14 +1350,15 @@ void dpstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s, con
 
 void colourmap(attr a, colour fore, colour back)
 {
-	fore[0]=(a.fore&4)?255:0;
+	fore[0]=(a.fore&1)?255:0;
 	fore[1]=(a.fore&2)?255:0;
-	fore[2]=(a.fore&1)?255:0;
+	fore[2]=(a.fore&4)?255:0;
+	if(a.fore==4) fore[0]=fore[1]=31;
 	if(a.bold&&!a.fore)
 		fore[0]=fore[1]=fore[2]=85;
-	back[0]=(a.back&4)?205:0;
+	back[0]=(a.back&1)?205:0;
 	back[1]=(a.back&2)?205:0;
-	back[2]=(a.back&1)?205:0;
+	back[2]=(a.back&4)?205:0;
 }
 
 void invert(SDL_Surface *scrn, SDL_Rect r)
@@ -1389,9 +1390,9 @@ void filter(SDL_Surface *scrn, SDL_Rect r, colour fore, colour back)
 			unsigned char *pixloc = ((unsigned char *)scrn->pixels)+s_off;
 			bool set=pixloc[0];
 			if(set)
-				memcpy(pixloc, fore, 3);
+				*(Uint32 *)pixloc=SDL_MapRGB(scrn->format, fore[0], fore[1], fore[2]);
 			else
-				memcpy(pixloc, back, 3);
+				*(Uint32 *)pixloc=SDL_MapRGB(scrn->format, back[0], back[1], back[2]);
 		}	
 }
 

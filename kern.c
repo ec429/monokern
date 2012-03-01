@@ -139,7 +139,7 @@ int kern(const char *str, signed char *dev, const KERN *k)
 		if(rscore[r]>rscore[mr])
 			mr=r;
 	}
-	for(unsigned int j=0;j<=n;j++)
+	for(unsigned int j=0;j<n;j++)
 		dev[j]=rdev[j][mr]-1;
 	return(0);
 }

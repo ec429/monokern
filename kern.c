@@ -7,15 +7,15 @@
 
 int ratepair(const char pair[2], const signed char dev[2], const KERN *k);
 
-KERN *kern_init(FILE *fp)
+KERN *kern_init(FILE *fp, bool guess)
 {
 	string s=sslurp(fp);
-	KERN *k=kern_init_s(s);
+	KERN *k=kern_init_s(s, guess);
 	free_string(&s);
 	return(k);
 }
 
-KERN *kern_init_s(string s)
+KERN *kern_init_s(string s, bool guess)
 {
 	KERN *rv=malloc(sizeof(KERN));
 	for(unsigned int i=0;i<96;i++)
@@ -23,6 +23,8 @@ KERN *kern_init_s(string s)
 			rv->score[i][j][0]=(rv->score[i][j][1]=0)-30;
 	if(!s.buf) return(rv);
 	unsigned int i=0;
+	bool notblank[96];
+	memset(notblank, 0, 96*sizeof(bool));
 	while(i<s.i)
 	{
 		char *p=s.buf+i;
@@ -41,6 +43,8 @@ KERN *kern_init_s(string s)
 			free(rv);
 			return(NULL);
 		}
+		if(rv->score[a][b][0]||rv->score[a][b][1]) notblank[a]=true;
+		else if(guess&&!notblank[a]) rv->score[a][b][0]=rv->score[a][b][1]=-6;
 		p[l]=c;
 		i+=l+1;
 	}

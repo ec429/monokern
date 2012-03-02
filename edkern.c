@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
 	char kfn[strlen(font)+8];
 	snprintf(kfn, strlen(font)+8, "%s/scores", font);
 	FILE *kf=fopen(kfn, "r");
-	KERN *k=kern_init(kf);
+	KERN *k=kern_init(kf, false);
 	fclose(kf);
 	if(!k)
 	{

@@ -92,6 +92,7 @@ typedef struct
 	bool (*dirty)[2]; // [0]=dev, [1]=screen
 	point cur;
 	point old;
+	point save;
 	bool meta;
 	bool status;
 	unsigned int statusp;
@@ -113,6 +114,7 @@ int main(int argc, char *argv[])
 	const char *font="as";
 	bool green=false;
 	bool terminfo=true;
+	bool wide=false;
 	for(int arg=1;arg<argc;arg++)
 	{
 		if(argv[arg][0]=='-')
@@ -141,6 +143,10 @@ int main(int argc, char *argv[])
 			{
 				terminfo=false;
 			}
+			else if(strcmp(argv[arg], "--wide")==0)
+			{
+				wide=true;
+			}
 			else
 			{
 				fprintf(stderr, "termk: unrecognised option, ignoring: %s\n", argv[arg]);
@@ -157,8 +163,8 @@ int main(int argc, char *argv[])
 	const char *term=NULL;
 	if(terminfo)
 	{
-		const char * const terms[]={"termk-vt52","termk","vt52-am",NULL};
-		unsigned int i=0;
+		const char * const terms[]={"termk52-w", "termk52", "termk-vt52","termk","vt52-am",NULL};
+		unsigned int i=wide?0:1;
 		while(terms[i])
 		{
 			int errret;
@@ -189,6 +195,7 @@ int main(int argc, char *argv[])
 				fprintf(stderr, "terminfo '%s' selected\n", term);
 				break;
 			}
+			i++;
 		}
 	}
 	else
@@ -347,7 +354,7 @@ int main(int argc, char *argv[])
 		}
 		else if(strcmp(kfb.ents[i].name.buf, "scores")==0)
 		{
-			k=kern_init_s(kfb.ents[i].data);
+			k=kern_init_s(kfb.ents[i].data, true);
 		}
 	}
 	kf_free(kfb);
@@ -481,7 +488,7 @@ int main(int argc, char *argv[])
 	}
 	
 	terminal t;
-	if(initterm(&t, 256, 24, 80)) return(EXIT_FAILURE);
+	if(initterm(&t, 256, 24, wide?132:80)) return(EXIT_FAILURE);
 	
 	SDL_Surface *screen=ginit(8+t.cols*fsiz.x, 4+t.rows*fsiz.y, 32);
 	if(!screen)
@@ -764,6 +771,19 @@ int main(int argc, char *argv[])
 															t.at[t.cur.y][x]=t.sgr;
 														}
 														t.dirty[t.cur.y][0]=true;
+													}
+												}
+												else if(strcmp(escape, "save_cursor")==0)
+												{
+													if(save_cursor)
+														t.save=t.cur;
+												}
+												else if(strcmp(escape, "restore_cursor")==0)
+												{
+													if(restore_cursor)
+													{
+														t.dirty[t.cur.y][1]=true;
+														t.dirty[(t.cur=t.save).y][1]=true;
 													}
 												}
 												else if(strcmp(escape, "to_status_line")==0)

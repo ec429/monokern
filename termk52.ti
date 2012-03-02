@@ -4,6 +4,7 @@ termk52|vt52-termk|termk-vt52|termk/monokern vt52 branch,
 	am,
 # control codes
 	el1=\E(clr_bol),
+	sc=\E(save_cursor),rc=\E(restore_cursor),
 	hs,
 		wsl#80,
 		tsl=\E(to_status_line),

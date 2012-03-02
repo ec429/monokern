@@ -9,13 +9,16 @@ all: kern.o edkern progress termk as.termkf 18.termkf
 clean:
 	-rm *.termkf *.o edkern progress termk
 
-install: $(PREFIX)/bin/termk $(PREFIX)/share/sounds/bell.wav $(PREFIX)/share/fonts/as.termkf $(PREFIX)/share/fonts/18.termkf $(TERMINFO)/t/termk52
+install: $(PREFIX)/bin/termk $(PREFIX)/share/sounds/bell.wav $(PREFIX)/share/fonts/as.termkf $(PREFIX)/share/fonts/18.termkf $(TERMINFO)/t/termk52 $(TERMINFO)/t/termk52-w
 
 $(PREFIX)/bin/termk: termk
 	install -D $< $@
 
 $(TERMINFO)/t/termk52: termk52.ti
 	sudo tic termk52.ti
+
+$(TERMINFO)/t/termk52-w: termk52.ti termk52-w.ti
+	sudo tic termk52-w.ti
 
 $(PREFIX)/share/sounds/bell.wav: bell.wav
 	install -D $< $@

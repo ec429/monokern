@@ -454,6 +454,8 @@ int main(int argc, char *argv[])
 			}
 			if(j<nlids)
 				(l.bold=lids[j].data)->refcount++;
+			else
+				l.bold=NULL;
 			i+=tl;
 			unsigned int n=nligs++;
 			lig *nl=realloc(ligs, nligs*sizeof(lig));

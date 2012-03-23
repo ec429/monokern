@@ -1014,7 +1014,7 @@ int main(int argc, char *argv[])
 				do_update=false;
 			}
 		}
-		if(SDL_PollEvent(&event))
+		while(SDL_PollEvent(&event))
 		{
 			do_update=true;
 			switch(event.type)

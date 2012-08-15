@@ -585,12 +585,15 @@ int main(int argc, char *argv[])
 	SDL_Event event;
 	bool do_update=true;
 	int since_update=0;
+	int idle=0;
 	int errupt=0;
 	while(!errupt)
 	{
 		readfds=master;
 		tv.tv_sec=0;
-		tv.tv_usec=do_update?0:25000;
+		tv.tv_usec=do_update?0:25000+(idle*1000);
+		if(idle<475)
+			idle++;
 		if(select(fdmax+1, &readfds, NULL, NULL, &tv)==-1)
 		{
 			if(errno!=EINTR) // nobody cares if select() was interrupted by a signal
@@ -977,6 +980,7 @@ int main(int argc, char *argv[])
 				}
 				do_update=true;
 				t.scroll=0;
+				idle=0;
 			}
 			else
 			{
@@ -1014,6 +1018,7 @@ int main(int argc, char *argv[])
 		while(SDL_PollEvent(&event))
 		{
 			do_update=true;
+			idle=0;
 			switch(event.type)
 			{
 				case SDL_QUIT:

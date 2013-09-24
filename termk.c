@@ -106,6 +106,7 @@ int initterm(terminal *t, unsigned int nlines, unsigned int rows, unsigned int c
 void cdown(terminal *t);
 bool cright(terminal *t, bool wrap);
 int getpm(const char *escd, unsigned int *i, unsigned int *g, unsigned int e);
+bool black=false;
 
 int main(int argc, char *argv[])
 {
@@ -138,6 +139,11 @@ int main(int argc, char *argv[])
 			else if(strcmp(argv[arg], "-18")==0)
 			{
 				font="18";
+			}
+			else if(strcmp(argv[arg], "--scribit")==0)
+			{
+				font="scribit";
+				black=true;
 			}
 			else if(strcmp(argv[arg], "--vt52")==0)
 			{
@@ -485,7 +491,7 @@ int main(int argc, char *argv[])
 	
 	if(letters[0])
 	{
-		fsiz.y=letters[0]->h+1;
+		fsiz.y=letters[0]->h;
 		fsiz.x=letters[0]->w+1;
 	}
 	
@@ -577,7 +583,7 @@ int main(int argc, char *argv[])
 	int fdmax=ptmx;
 	struct timeval tv;
 	
-	SDL_FillRect(screen, &(SDL_Rect){0, 0, screen->w, screen->h}, SDL_MapRGB(screen->format, 0, 0, 0));
+	SDL_FillRect(screen, &(SDL_Rect){0, 0, screen->w, screen->h}, SDL_MapRGB(screen->format, black?255:0, black?255:0, black?255:0));
 	SDL_Flip(screen);
 	SDL_WM_SetCaption(t.statusline, t.statusline);
 	SDL_EnableUNICODE(1);
@@ -1003,7 +1009,7 @@ int main(int argc, char *argv[])
 					}
 					if(t.dirty[j][1]||(j==t.cur.y)||(j==t.old.y)||(t.scroll!=t.scrold))
 					{
-						SDL_FillRect(screen, &(SDL_Rect){0, 2+i*fsiz.y, screen->w, fsiz.y}, SDL_MapRGB(screen->format, 0, 0, 0));
+						SDL_FillRect(screen, &(SDL_Rect){0, 2+i*fsiz.y, screen->w, fsiz.y}, SDL_MapRGB(screen->format, black?255:0, black?255:0, black?255:0));
 						dpstr(screen, 4, 2+i*fsiz.y, t.text[j], t.at[j], t.dev[j], j==t.cur.y, t.cur.x, green);
 						if(green) filter(screen, (SDL_Rect){0, 2+i*fsiz.y, screen->w, fsiz.y}, (colour){0, 0xc0, 0}, (colour){0, 0x20, 0});
 						t.dirty[j][1]=false;
@@ -1348,7 +1354,7 @@ void dpstr(SDL_Surface *scrn, unsigned int x, unsigned int y, const char *s, con
 			SDL_Surface *l=NULL;
 			if(at[scx].bold) l=ligs[i].bold;
 			if(!l) l=ligs[i].data;
-			SDL_BlitSurface(l, NULL, scrn, &(SDL_Rect){x+dev[scx]+2-(l->w>>1), y, 0, 0});
+			SDL_BlitSurface(l, NULL, scrn, &(SDL_Rect){x+dev[scx]+((fsiz.x-1)>>1)-(l->w>>1), y, 0, 0});
 		}
 		x+=fsiz.x;
 		scx++;

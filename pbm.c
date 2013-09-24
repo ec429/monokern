@@ -24,7 +24,6 @@ SDL_Surface *pbm_string(string s)
 	s.buf[i++]=0;
 	sscanf(s.buf+j, "%u", &w);
 	j=i;
-	if(w>8) return(NULL);
 	while(i<s.i)
 	{
 		if(s.buf[i]=='\n') break;
@@ -36,18 +35,19 @@ SDL_Surface *pbm_string(string s)
 	if(!rv) return(NULL);
 	for(unsigned int y=0;y<h;y++)
 	{
-		if(i<s.i)
+		for(unsigned int x=0;x<w;x++)
 		{
-			for(unsigned int x=0;x<w;x++)
+			if(x&&!(x&7)) i++;
+			if(i<s.i)
 			{
-				bool px=s.buf[i]&(1<<(7-x));;
+				bool px=s.buf[i]&(1<<(7-(x&7)));
 				SDL_FillRect(rv, &(SDL_Rect){x, y, 1, 1}, SDL_MapRGB(rv->format, px?0:255, px?0:255, px?0:255));
 			}
-		}
-		else
-		{
-			SDL_FreeSurface(rv);
-			return(NULL);
+			else
+			{
+				SDL_FreeSurface(rv);
+				return(NULL);
+			}
 		}
 		i++;
 	}

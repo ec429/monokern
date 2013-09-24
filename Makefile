@@ -4,12 +4,12 @@ TERMINFO := /usr/share/terminfo
 CC := gcc
 CFLAGS := -Wall -Wextra -Werror -pedantic --std=gnu99 -g -DPREFIX=\"$(PREFIX)\"
 
-all: kern.o edkern progress termk as.termkf 18.termkf
+all: kern.o edkern progress termk as.termkf 18.termkf scribit.termkf
 
 clean:
 	-rm *.termkf *.o edkern progress termk
 
-install: $(PREFIX)/bin/termk $(PREFIX)/share/fonts/as.termkf $(PREFIX)/share/fonts/18.termkf $(TERMINFO)/t/termk52 $(TERMINFO)/t/termk52-w
+install: $(PREFIX)/bin/termk $(PREFIX)/share/fonts/as.termkf $(PREFIX)/share/fonts/18.termkf $(PREFIX)/share/fonts/scribit.termkf $(TERMINFO)/t/termk52 $(TERMINFO)/t/termk52-w
 
 $(PREFIX)/bin/termk: termk
 	install -D $< $@
@@ -27,7 +27,7 @@ $(PREFIX)/share/fonts/%.termkf: %.termkf
 	./fontify $@
 
 termk: termk.c kern.h kern.o bits.h bits.o kfa.h kfa.o pbm.h pbm.o
-	$(CC) $(CFLAGS) $(CPPFLAGS) $< $(LDFLAGS) kern.o bits.o kfa.o pbm.o -o $@ `sdl-config --cflags --libs`
+	$(CC) $(CFLAGS) $(CPPFLAGS) $< $(LDFLAGS) kern.o bits.o kfa.o pbm.o -o $@ `sdl-config --cflags --libs` -lncurses -lX11
 
 edkern: edkern.c kern.h kern_hack.h kern.o bits.h bits.o pbm.h pbm.o
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< $(LDFLAGS) kern.o bits.o pbm.o -o $@ `sdl-config --cflags --libs`
